@@ -196,6 +196,37 @@ body {
 .prov-badge--external { color: var(--warn); background: var(--warn-dim); border-color: transparent; }
 .prov-badge--none { color: var(--text-dim); }
 
+/* App version badge (top bar) */
+.app-version {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-faint);
+  letter-spacing: 0.3px;
+}
+
+/* Git commit hash badge (top bar) */
+.app-commit {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-faint);
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
 /* Theme toggle */
 .icon-btn {
   width: 32px;

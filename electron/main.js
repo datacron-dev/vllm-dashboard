@@ -440,6 +440,14 @@ function serverControlGuard(action) {
 // Application lifecycle
 // ---------------------------------------------------------------------------
 app.whenReady().then(() => {
+  // Expose git commit hash to preload via env var (set during build or dev)
+  if (!process.env.PROVENANCE_COMMIT) {
+    try {
+      const { execSync } = require('child_process');
+      process.env.PROVENANCE_COMMIT = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    } catch (_) { /* not in a git repo or git unavailable */ }
+  }
+
   // Resolve config / profile paths *after* Electron's appdata dir is stable.
   // For AppImages this is critical: app.getPath('userData') may resolve to the
   // ephemeral mount point when called at module-load time, but resolves to the

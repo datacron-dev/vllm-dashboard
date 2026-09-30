@@ -56,9 +56,21 @@ contextBridge.exposeInMainWorld('vllm', {
   onProvenanceUpdate: (cb) => subscribe('prov:update', cb),
 
   // App info
-  versions: () => ({
-    electron: process.versions.electron,
-    chrome: process.versions.chrome,
-    node: process.versions.node,
-  }),
+  versions: () => {
+    // Load version from .version file if present
+    let appVersion = '';
+    try {
+      appVersion = require('fs').readFileSync(
+        require('path').join(__dirname, '..', '.version'),
+        'utf8'
+      ).trim();
+    } catch (_) { /* not present */ }
+    return {
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      node: process.versions.node,
+      app: appVersion,
+      commit: process.env.PROVENANCE_COMMIT || '',
+    };
+  },
 });

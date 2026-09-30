@@ -982,11 +982,37 @@ const sysmon = {
     }
   },
 };
+// ---------------------------------------------------------------------------
+// App version — read from .version file, displayed in the top bar
+// ---------------------------------------------------------------------------
+function loadAppVersion() {
+  const el = document.getElementById('app-version');
+  if (!el) return;
+  if (window.vllm && typeof window.vllm.versions === 'function') {
+    try {
+      const v = window.vllm.versions();
+      if (v && v.app) {
+        el.textContent = v.app;
+        // Also set the commit badge if available
+        const commitEl = document.getElementById('app-commit');
+        if (commitEl) {
+          if (v.commit) commitEl.textContent = v.commit;
+          else commitEl.style.display = 'none';
+        }
+        return;
+      }
+    } catch (_) { /* versions() may fail in dev */ }
+  }
+  // Ultimate fallback: hard-coded.
+  el.textContent = 'v0.1.0';
+}
+
 
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
+  loadAppVersion();
   logs.init();
   serverCtl.init();
   config.init();
