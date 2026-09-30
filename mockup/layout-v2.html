@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>vLLM Dashboard — Layout Mockup v2</title>
+<style>
+/* =========================================================================
+   Mockup styles — matches current vLLM Dashboard dark theme closely
+   ========================================================================= */
+
+:root {
+  --bg: #0d1117;
+  --bg-elev: #161b22;
+  --bg-panel: #161b22;
+  --border: #30363d;
+  --border-strong: #3d444d;
+  --text: #e6edf3;
+  --text-dim: #9a9fa5;
+  --text-faint: #6e7681;
+  --accent: #3fb950;
+  --accent-dim: rgba(63, 185, 80, 0.15);
+  --warn: #d29922;
+  --warn-dim: rgba(210, 153, 34, 0.15);
+  --error: #f85149;
+  --error-dim: rgba(248, 81, 73, 0.15);
+  --info: #58a6ff;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --topbar-h: 48px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ============ Top bar ============ */
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.topbar__left { display: flex; align-items: center; gap: 12px; }
+.topbar__right { display: flex; align-items: center; gap: 10px; }
+
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand__title { font-size: 14px; font-weight: 600; }
+.endpoint {
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; font-size: 11px; font-weight: 500;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-panel); color: var(--text-dim);
+}
+.badge--running { color: var(--accent); background: var(--accent-dim); border-color: transparent; }
+.badge--running .badge__dot { background: var(--accent); }
+.badge__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-dim); cursor: pointer; font-size: 14px;
+}
+
+/* ============ Main grid ============ */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto auto auto;
+  gap: 12px;
+  padding: 12px;
+  height: calc(100vh - var(--topbar-h));
+  overflow-y: auto;
+}
+
+/* ============ Panels ============ */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+  flex-shrink: 0;
+}
+.panel__title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
+.panel__meta { font-size: 11px; color: var(--text-faint); }
+.panel__body { padding: 0 14px 12px; overflow: auto; flex: 1; }
+
+/* ============ Server Control ============ */
+.ctl-buttons { display: flex; gap: 8px; margin-bottom: 12px; }
+.ctl-btn {
+  flex: 1; padding: 7px 10px; border: none; border-radius: 6px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.ctl-btn--start { background: #1f6f3a; color: #fff; }
+.ctl-btn--stop { background: #8b1a1a; color: #fff; }
+.ctl-btn--restart { background: var(--bg-elev); color: var(--text-dim); border: 1px solid var(--border); }
+.ctl-status, .ctl-output {
+  display: flex; justify-content: space-between; padding: 4px 0;
+  font-size: 12px;
+}
+.ctl-status__label, .ctl-output__label { color: var(--text-dim); }
+.ctl-status__value { color: var(--accent); font-weight: 600; }
+.ctl-output__value { color: var(--text-dim); }
+
+/* ============ Recent Requests ============ */
+.recent-requests-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.recent-requests-table th {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.recent-requests-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+}
+.recent-requests-table tr:last-child td { border-bottom: none; }
+.badge-status {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 500;
+}
+.badge-status--done { background: var(--accent-dim); color: var(--accent); }
+.badge-status--running { background: rgba(88,166,255,0.15); color: var(--info); }
+.num { font-family: "SF Mono", Consolas, monospace; text-align: right; }
+
+/* ============ Throughput ============ */
+.tstat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tstat { background: var(--bg-elev); border-radius: 8px; padding: 12px; text-align: center; }
+.tstat__label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+.tstat__value { font-size: 28px; font-weight: 700; font-family: "SF Mono", Consolas, monospace; color: var(--text); }
+.tstat__unit { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 3px; }
+.tstat__sparkline {
+  margin-top: 6px;
+  height: 20px;
+  position: relative;
+}
+.tstat__sparkline svg { width: 100%; height: 20px; }
+.sparkline-line { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+.sparkline-area { fill: var(--accent-dim); }
+
+/* ============ Server Health ============ */
+.health-stat { padding: 6px 0; }
+.health-stat__label { font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+.health-stat__value { font-size: 20px; font-weight: 700; font-family: "SF Mono", Consolas, monospace; }
+.health-stat__bar {
+  height: 6px; background: var(--bg-elev); border-radius: 3px; margin-top: 4px; overflow: hidden;
+}
+.health-stat__fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s; }
+.health-stat__fill--warn { background: var(--warn); }
+.health-stat__fill--full { background: var(--error); }
+
+/* ============ Prefix Cache ============ */
+.prefix-stat { padding: 6px 0; }
+.prefix-stat__value { font-size: 22px; font-weight: 700; font-family: "SF Mono", Consolas, monospace; }
+.prefix-stat__hint { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+/* ============ Context Fill Donut ============ */
+.ctx-donut-wrap {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; padding: 8px;
+}
+.ctx-donut-wrap svg { width: 100%; max-width: 140px; }
+.ctx-donut-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; text-align: center; }
+.ctx-donut-pct { font-size: 24px; font-weight: 700; font-family: "SF Mono", Consolas, monospace; color: var(--text); }
+.ctx-donut-sub { font-size: 11px; color: var(--text-dim); }
+
+/* ============ Logs ============ */
+.log-view {
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 180px;
+  overflow-y: auto;
+  background: #0a0e14;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  color: var(--text-dim);
+}
+.log-line--info { color: var(--text-dim); }
+.log-line--warn { color: var(--warn); }
+.log-line--error { color: var(--error); }
+
+/* ============ System Monitor ============ */
+.sysmon__group { margin-bottom: 12px; }
+.sysmon__title { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.sysmon__row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sysmon__cell {
+  background: var(--bg-elev); border-radius: 6px; padding: 8px 10px;
+  flex: 1 1 calc(33% - 6px); min-width: 100px;
+}
+.sysmon__label { font-size: 9px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+.sysmon__value { font-size: 13px; font-weight: 600; font-family: "SF Mono", Consolas, monospace; }
+.sysmon__cell--wide { flex: 1 1 100%; }
+
+/* Sparkline in sysmon cells */
+.sysmon__cell .sparkline-cell {
+  margin-top: 4px;
+  height: 16px;
+  position: relative;
+}
+.sysmon__cell .sparkline-cell svg { width: 100%; height: 16px; }
+
+/* Color-coded bars for temp/power */
+.sysmon__cell .temp-bar-wrap {
+  height: 4px; background: var(--bg); border-radius: 2px; margin-top: 3px; overflow: hidden;
+}
+.sysmon__cell .temp-bar-fill { height: 100%; border-radius: 2px; }
+
+/* ============ Config panel ============ */
+.cfg-field { margin-bottom: 10px; }
+.cfg-field__label { font-size: 10px; color: var(--text-dim); margin-bottom: 3px; }
+.cfg-input, .cfg-textarea {
+  width: 100%; background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 12px;
+  font-family: "SF Mono", Consolas, monospace;
+}
+.cfg-textarea { height: 160px; resize: vertical; }
+.cfg-textarea::-webkit-scrollbar { width: 6px; }
+.cfg-textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.cfg-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.ghost-btn {
+  background: none; border: 1px solid var(--border); color: var(--text-dim);
+  padding: 5px 12px; border-radius: 6px; font-size: 11px; cursor: pointer;
+}
+.ghost-btn--accent { color: var(--accent); border-color: var(--accent); }
+.cfg-saved { font-size: 11px; color: var(--accent); }
+.cfg-section { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 8px; }
+.cfg-section__title { font-size: 10px; color: var(--text-faint); text-transform: uppercase; margin-bottom: 6px; }
+.cfg-section__footer { display: flex; align-items: center; gap: 8px; }
+.profiles-list { font-size: 11px; color: var(--text-faint); font-style: italic; }
+
+/* ============ Annotation arrows ============ */
+.annotation {
+  position: absolute;
+  z-index: 100;
+  pointer-events: none;
+}
+.annotation-line {
+  stroke: #ff6b6b;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.8;
+}
+.annotation-text {
+  font-size: 10px;
+  font-weight: 600;
+  fill: #ff6b6b;
+  opacity: 0.9;
+}
+
+/* Mockup overlay banner */
+.mockup-banner {
+  background: linear-gradient(90deg, #ff6b6b 0%, #d63031 100%);
+  color: #fff; text-align: center; padding: 4px 16px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+}
+.mockup-label {
+  display: inline-block;
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px dashed #ff6b6b;
+  color: #ff6b6b;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* ============ Sparkline green placeholder ============ */
+.sparkline-placeholder {
+  background: var(--accent-dim);
+  border: 1px dashed var(--accent);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.sparkline-placeholder::after {
+  content: 'SPARKLINE';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  opacity: 0.6;
+}
+
+/* Sparkline SVG demo lines */
+.spark-demo-line { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+.spark-demo-area { fill: var(--accent-dim); }
+
+/* ============ Responsive / Print ============ */
+@media print {
+  body { background: white; color: black; }
+}
+
+/* Container for absolute-positioned labels */
+.container { position: relative; }
+.float-label {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #d63031;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 100;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+
+<!-- Mockup banner -->
+<div class="mockup-banner">
+  VLLM DASHBOARD — LAYOUT MOCKUP v2 &nbsp;|&nbsp; Green dashed = new sparkline locations &nbsp;|&nbsp; BLUE = moved panels &nbsp;|&nbsp; RED = new panels
+</div>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="topbar__left">
+    <div class="brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M0 4.973h9.324V23L0 4.973z" fill="#FDB515"/>
+        <path d="M13.986 4.351L22.378 0l-6.216 23H9.324l4.662-18.649z" fill="#30A2FF"/>
+      </svg>
+      <span class="brand__title">vLLM Dashboard</span>
+    </div>
+    <span class="endpoint">http://127.0.0.1:8000</span>
+    <span class="prov-badge badge">Ours · Qwen3.6-35B-A3B</span>
+  </div>
+  <div class="topbar__right">
+    <div class="badge badge--running"><span class="badge__dot"></span> Live</div>
+    <div class="badge"><span class="badge__dot"></span> Qwen3.6-35B-A3B-NVFP4</div>
+    <button class="icon-btn">☾</button>
+  </div>
+</header>
+
+<!-- Main grid -->
+<main class="grid">
+
+  <!-- ======= ROW 1 ======= -->
+
+  <!-- PANEL 1: Server Control (moved Uptime Poll HERE) -->
+  <section class="panel" id="panel-server">
+    <header class="panel__header">
+      <h2 class="panel__title">Server Control</h2>
+      <span class="panel__meta">container: my-vllm</span>
+    </header>
+    <div class="panel__body">
+      <div class="ctl-buttons">
+        <button class="ctl-btn ctl-btn--start">Start</button>
+        <button class="ctl-btn ctl-btn--stop">Stop</button>
+        <button class="ctl-btn ctl-btn--restart">Restart</button>
+      </div>
+      <div class="ctl-status">
+        <span class="ctl-status__label">Container</span>
+        <span class="ctl-status__value">running</span>
+      </div>
+      <div class="ctl-output">
+        <span class="ctl-output__label">Last action</span>
+        <span class="ctl-output__value">idle</span>
+      </div>
+      <!-- MOVED: Uptime Poll from Server Health -->
+      <div class="ctl-status" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
+        <span class="ctl-status__label">Uptime Poll</span>
+        <span class="ctl-output__value" style="color: var(--text);">07:47:55 PM</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL: Recent Requests (NEW — placed above Server Logs) -->
+  <section class="panel" id="panel-recent-requests">
+    <header class="panel__header">
+      <h2 class="panel__title">Recent Requests</h2>
+      <span class="panel__meta">last 12 requests</span>
+    </header>
+    <div class="panel__body" style="padding-bottom: 6px;">
+      <table class="recent-requests-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Status</th>
+            <th class="num">Prompt</th>
+            <th class="num">Output</th>
+            <th class="num">Tok/s</th>
+            <th class="num">Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>19:42:10</td>
+            <td><span class="badge-status badge-status--done">● Done</span></td>
+            <td class="num">2,048</td>
+            <td class="num">512</td>
+            <td class="num">76.3</td>
+            <td class="num">8.2s</td>
+          </tr>
+          <tr>
+            <td>19:39:44</td>
+            <td><span class="badge-status badge-status--done">● Done</span></td>
+            <td class="num">1,024</td>
+            <td class="num">256</td>
+            <td class="num">82.1</td>
+            <td class="num">4.4s</td>
+          </tr>
+          <tr>
+            <td>19:37:12</td>
+            <td><span class="badge-status badge-status--done">● Done</span></td>
+            <td class="num">4,096</td>
+            <td class="num">1,024</td>
+            <td class="num">68.5</td>
+            <td class="num">22.5s</td>
+          </tr>
+          <tr>
+            <td>19:35:03</td>
+            <td><span class="badge-status badge-status--running">● Running</span></td>
+            <td class="num">512</td>
+            <td class="num">128</td>
+            <td class="num">91.2</td>
+            <td class="num">1.8s</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PANEL 3: Throughput (sparklines below values) -->
+  <section class="panel" id="panel-throughput">
+    <header class="panel__header">
+      <h2 class="panel__title">Throughput</h2>
+      <span class="panel__meta">5,743,534 + 40,989 total</span>
+    </header>
+    <div class="panel__body">
+      <div class="tstat-grid">
+        <div class="tstat">
+          <div class="tstat__label">Prompt</div>
+          <div class="tstat__value">0<span class="tstat__unit">tok/s</span></div>
+          <!-- GREEN SPARKLINE: Prompt throughput history -->
+          <div class="tstat__sparkline sparkline-placeholder">
+            <svg viewBox="0 0 120 20" preserveAspectRatio="none">
+              <path class="sparkline-area" d="M0,18 L10,17 L20,16 L30,15 L40,14 L50,13 L60,14 L70,15 L80,12 L90,13 L100,14 L110,15 L120,16 L120,20 L0,20Z"/>
+              <path class="spark-demo-line" d="M0,18 L10,17 L20,16 L30,15 L40,14 L50,13 L60,14 L70,15 L80,12 L90,13 L100,14 L110,15 L120,16"/>
+            </svg>
+          </div>
+        </div>
+        <div class="tstat">
+          <div class="tstat__label">Generation</div>
+          <div class="tstat__value">106<span class="tstat__unit">tok/s</span></div>
+          <!-- GREEN SPARKLINE: Generation throughput history -->
+          <div class="tstat__sparkline sparkline-placeholder">
+            <svg viewBox="0 0 120 20" preserveAspectRatio="none">
+              <path class="sparkline-area" d="M0,10 L10,12 L20,11 L30,9 L40,8 L50,7 L60,6 L70,5 L80,4 L90,6 L100,5 L110,4 L120,3 L120,20 L0,20Z"/>
+              <path class="spark-demo-line" d="M0,10 L10,12 L20,11 L30,9 L40,8 L50,7 L60,6 L70,5 L80,4 L90,6 L100,5 L110,4 L120,3"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= ROW 2 ======= -->
+
+  <!-- PANEL: Server Health (moved above Prefix Cache — shorter) -->
+  <section class="panel" id="panel-health">
+    <header class="panel__header">
+      <h2 class="panel__title">Server Health</h2>
+      <span class="panel__meta" id="health-meta">live</span>
+    </header>
+    <div class="panel__body">
+      <div class="health-stat">
+        <div class="health-stat__label">KV Cache</div>
+        <div class="health-stat__value" style="color: var(--accent);">2.7%</div>
+        <div class="health-stat__bar">
+          <div class="health-stat__fill" style="width: 2.7%;"></div>
+        </div>
+      </div>
+      <div class="health-stat" style="margin-top: 10px;">
+        <div class="health-stat__label">Requests</div>
+        <div class="health-stat__value" style="font-size: 22px;">1 <span style="font-size: 14px; color: var(--text-dim);">/</span> 0</div>
+        <div class="health-stat__hint">running / waiting</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL: Prefix Cache (reduced height, now side-by-side with Context Fill) -->
+  <section class="panel" id="panel-prefix-cache">
+    <header class="panel__header">
+      <h2 class="panel__title">Prefix Cache</h2>
+      <span class="panel__meta">from 07:40:10</span>
+    </header>
+    <div class="panel__body">
+      <div class="prefix-stat">
+        <div class="prefix-stat__value">81.9%</div>
+        <div class="prefix-stat__hint">8,241 / 10,063 prefix tokens from cache</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEW PANEL: Context Fill — 270° Donut -->
+  <section class="panel" id="panel-context-fill">
+    <header class="panel__header">
+      <h2 class="panel__title">Context Fill</h2>
+      <span class="panel__meta">of 64K context</span>
+    </header>
+    <div class="panel__body">
+      <div class="ctx-donut-wrap">
+        <!-- 270° donut: circumference = 2*PI*40 = 251.3, stroke-dasharray 235.6 314.2 with rotate 135 60 60 -->
+        <svg viewBox="0 0 120 120" width="140" height="140">
+          <!-- Track: 270° arc -->
+          <circle cx="60" cy="60" r="40" fill="none"
+                  stroke="var(--border-strong)" stroke-width="8"
+                  stroke-linecap="round"
+                  stroke-dasharray="235.6 314.2"
+                  transform="rotate(135 60 60)"/>
+          <!-- Fill: ~12% usage (prompt 2048 + gen 100 = 2148 / 16384 active context) -->
+          <circle id="ctx-fill" cx="60" cy="60" r="40" fill="none"
+                  stroke="var(--accent)" stroke-width="8"
+                  stroke-linecap="round"
+                  stroke-dasharray="28.3 314.2"
+                  transform="rotate(135 60 60)"/>
+          <!-- Center text -->
+          <text x="60" y="54" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700" font-family="SF Mono, Consolas, monospace">13%</text>
+          <text x="60" y="70" text-anchor="middle" fill="var(--text-dim)" font-size="8" font-family="-apple-system, sans-serif">2,148 / 16,384</text>
+        </svg>
+        <div class="ctx-donut-sub" style="margin-top: 4px;">prompt + output tokens</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= ROW 3 ======= -->
+
+  <!-- PANEL: System Monitor -->
+  <section class="panel" id="panel-sysmon" style="grid-column: 1 / 3;">
+    <header class="panel__header">
+      <h2 class="panel__title">System Monitor</h2>
+      <span class="panel__meta">07:47:55 PM</span>
+    </header>
+    <div class="panel__body">
+      <!-- GPU sub-panel -->
+      <div class="sysmon__group">
+        <div class="sysmon__title">GPU — NVIDIA GB10</div>
+        <div class="sysmon__row">
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Utilization</div>
+            <div class="sysmon__value">94%</div>
+            <!-- GREEN SPARKLINE: GPU utilization -->
+            <div class="sparkline-cell sparkline-placeholder">
+              <svg viewBox="0 0 120 16" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,10 L10,9 L20,8 L30,7 L40,6 L50,5 L60,6 L70,5 L80,4 L90,5 L100,4 L110,3 L120,4 L120,16 L0,16Z"/>
+                <path class="spark-demo-line" d="M0,10 L10,9 L20,8 L30,7 L40,6 L50,5 L60,6 L70,5 L80,4 L90,5 L100,4 L110,3 L120,4"/>
+              </svg>
+            </div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Clock</div>
+            <div class="sysmon__value">2522 MHz</div>
+            <!-- GREEN SPARKLINE: GPU clock -->
+            <div class="sparkline-cell sparkline-placeholder">
+              <svg viewBox="0 0 120 16" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,8 L10,9 L20,7 L30,8 L40,7 L50,9 L60,8 L70,7 L80,8 L90,7 L100,9 L110,8 L120,7 L120,16 L0,16Z"/>
+                <path class="spark-demo-line" d="M0,8 L10,9 L20,7 L30,8 L40,7 L50,9 L60,8 L70,7 L80,8 L90,7 L100,9 L110,8 L120,7"/>
+              </svg>
+            </div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Temp</div>
+            <div class="sysmon__value" style="color: var(--accent);">49°C</div>
+            <!-- GREEN SPARKLINE: GPU temperature (color-coded) -->
+            <div class="sparkline-cell sparkline-placeholder">
+              <svg viewBox="0 0 120 16" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,12 L10,11 L20,10 L30,9 L40,8 L50,9 L60,8 L70,7 L80,8 L90,7 L100,6 L110,7 L120,6 L120,16 L0,16Z"/>
+                <path class="spark-demo-line" d="M0,12 L10,11 L20,10 L30,9 L40,8 L50,9 L60,8 L70,7 L80,8 L90,7 L100,6 L110,7 L120,6"/>
+              </svg>
+            </div>
+            <div class="temp-bar-wrap">
+              <div class="temp-bar-fill" style="width: 49%; background: var(--accent);"></div>
+            </div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Power</div>
+            <div class="sysmon__value">32.6 W</div>
+            <!-- GREEN SPARKLINE: GPU power -->
+            <div class="sparkline-cell sparkline-placeholder">
+              <svg viewBox="0 0 120 16" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,12 L10,11 L20,10 L30,9 L40,10 L50,11 L60,10 L70,9 L80,8 L90,9 L100,10 L110,9 L120,10 L120,16 L0,16Z"/>
+                <path class="spark-demo-line" d="M0,12 L10,11 L20,10 L30,9 L40,10 L50,11 L60,10 L70,9 L80,8 L90,9 L100,10 L110,9 L120,10"/>
+              </svg>
+            </div>
+            <div class="temp-bar-wrap">
+              <div class="temp-bar-fill" style="width: 33%; background: var(--info);"></div>
+            </div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Driver</div>
+            <div class="sysmon__value">580.159.03</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VRAM / Memory -->
+      <div class="sysmon__group">
+        <div class="sysmon__title">VRAM / Memory</div>
+        <div class="sysmon__row">
+          <div class="sysmon__cell sysmon__cell--wide">
+            <div class="sysmon__label">Unified Memory</div>
+            <div class="sysmon__value">74.9 / 122 GiB unified (62%)</div>
+            <div class="health-stat__bar" style="margin-top: 4px;">
+              <div class="health-stat__fill" style="width: 62%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System -->
+      <div class="sysmon__group">
+        <div class="sysmon__title">System</div>
+        <div class="sysmon__row">
+          <div class="sysmon__cell">
+            <div class="sysmon__label">OS</div>
+            <div class="sysmon__value">Linux</div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Arch</div>
+            <div class="sysmon__value">arm64</div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">CPU</div>
+            <div class="sysmon__value">Cortex-X4</div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Cores</div>
+            <div class="sysmon__value">20</div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Memory</div>
+            <div class="sysmon__value">74.9 / 122 GiB</div>
+            <div class="health-stat__bar" style="margin-top: 4px;">
+              <div class="health-stat__fill" style="width: 61%; background: var(--info);"></div>
+            </div>
+          </div>
+          <div class="sysmon__cell">
+            <div class="sysmon__label">Kernel</div>
+            <div class="sysmon__value">6.17.0-1021-nvidia</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL: Server Logs (Recent Requests now sits above it) -->
+  <section class="panel" id="panel-logs">
+    <header class="panel__header">
+      <h2 class="panel__title">Server Logs</h2>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-dim);">
+          <input type="checkbox" checked /> Auto-scroll
+        </label>
+        <button class="ghost-btn">Clear</button>
+        <button class="ghost-btn">▾</button>
+      </div>
+    </header>
+    <div class="panel__body">
+      <div class="log-view">
+        <div class="log-line log-line--info">HTTP/1.1" 200 OK</div>
+        <div class="log-line log-line--info">(APIIServer pid=1) INFO: 172.17.0.1:36282 - "GET /metrics HTTP/1.1" 200 OK</div>
+        <div class="log-line log-line--info">(APIIServer pid=1) INFO 09-23 23:47:56 [loggers.py:310] Engine 000: Avg prompt throughput: 628.7 tokens/s, Avg generation throughput: 76.9 token/s,</div>
+        <div class="log-line log-line--info">                Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 2.7%, Prefix cache hit rate: 81.9%</div>
+        <div class="log-line log-line--info">(APIIServer pid=1) INFO 09-23 23:47:56 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 3.90, Accepted throughput: 57.10</div>
+        <div class="log-line log-line--warn">                Drafted throughput: 59.10 tokens/s, Drafted: 591 tokens, Per-position acceptance rate: 0.980, 0.964, 0.954,</div>
+        <div class="log-line log-line--info">                Avg Draft acceptance rate: 96.6%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= ROW 4 ======= -->
+
+  <!-- PANEL: vLLM Config (spans right column) -->
+  <section class="panel" id="panel-config" style="grid-column: 3 / 4; grid-row: 3 / 5;">
+    <header class="panel__header">
+      <h2 class="panel__title">vLLM Config</h2>
+      <div class="panel__tools">
+        <button class="ghost-btn">Detect</button>
+        <button class="ghost-btn ghost-btn--accent">Save</button>
+      </div>
+    </header>
+    <div class="panel__body">
+      <div class="cfg-field">
+        <div class="cfg-field__label">Endpoint</div>
+        <input class="cfg-input" type="text" value="http://127.0.0.1:8000" />
+      </div>
+      <div class="cfg-field">
+        <div class="cfg-field__label">Model Preset</div>
+        <select class="cfg-input">
+          <option value="">— Custom (edit command below) —</option>
+          <option value="__custom_profile__" disabled>— Saved Profile —</option>
+          <option value="nemotron" selected>Nemotron 3.5 Lightning 30B</option>
+          <option value="gemma">Gemma-4-26B-A4B-NVFP4</option>
+          <option value="qwen">Qwen3.6-35B-A3B-NVFP4</option>
+        </select>
+      </div>
+      <div class="cfg-field">
+        <div class="cfg-field__label">Launch command</div>
+        <textarea class="cfg-textarea" spellcheck="false">docker run --name my-vllm \
+  --env CUDA_VISIBLE_DEVICES=0 \
+  --env NVIDIA_VISIBLE_DEVICES=all \
+  --env VLLM_USE_V2_MODEL_RUNNER=1 \
+  --gpus all \
+  --shm-size 32g \
+  --network host \
+  -v /home/ai-dev/.cache:/root/.cache \
+  -v /home/ai-dev/models:/models \
+  --privileged \
+  --ipc=host \
+  --ulimit memlock=-1 \
+  --ulimit stack=67108864 \
+  nvcr.io/nvidia/pytorch:26.01-py3 \
+  vllm serve Qwen3.6-35B-A3B-NVFP4 \
+    --trust-remote-code \
+    --kv-cache-dtype fp8 \
+    --attention-backend flashinfer \
+    --moe-backend marlin \
+    --gpu-memory-utilization 0.65 \
+    --model /models/Qwen3.6-35B-A3B-NVFP4 \
+    --max-model-len 262144 \
+    --max-num-seqs 6 \
+    --enable-chunked-prefill \
+    --async-scheduling \
+    --enable-prefix-caching \
+    --load-format safetensors \
+    --auto-tool-choice \
+    --tool-call-parser qwen3_coder</textarea>
+      </div>
+      <div class="cfg-actions">
+        <button class="ghost-btn">Save &amp; Restart</button>
+        <span class="cfg-saved">saved → /home/ai-dev/.config/vllm-dashboard/config.json</span>
+      </div>
+      <div class="cfg-section">
+        <div class="cfg-section__title">Saved Config Profiles</div>
+        <div class="profiles-list">No saved config profiles yet. Edit the launch command above and click "Create Custom Config" to save one.</div>
+        <div class="cfg-section__footer" style="margin-top: 6px;">
+          <button class="ghost-btn ghost-btn--accent">+ Create Custom Config</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ LEGEND ============ -->
+<div style="position: fixed; bottom: 12px; left: 12px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 10px; color: var(--text-dim); z-index: 200; max-width: 260px;">
+  <div style="font-weight: 600; color: var(--text); margin-bottom: 4px;">Legend</div>
+  <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 3px;">
+    <span class="sparkline-placeholder" style="width: 14px; height: 8px; display: inline-block; border-radius: 2px;"></span>
+    <span>Green dashed = sparkline to render</span>
+  </div>
+  <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 3px;">
+    <span style="background: rgba(255,107,107,0.15); border: 1px dashed #ff6b6b; color: #ff6b6b; padding: 0 5px; border-radius: 2px; font-size: 9px; font-weight: 600;">RED</span>
+    <span>New panel or moved element</span>
+  </div>
+  <div style="margin-top: 6px;">
+    <div style="font-weight: 600; color: var(--text); margin-bottom: 3px;">Sparkline data sources:</div>
+    <div style="line-height: 1.6;">
+      <div>• Prompt/Gen tok/s → metrics.js <code style="color: var(--text);">promptTokS/genTokS</code></div>
+      <div>• GPU util → sysmon <code style="color: var(--text);">utilizationPct</code></div>
+      <div>• Temp → sysmon <code style="color: var(--text);">temperatureC</code></div>
+      <div>• Power → sysmon <code style="color: var(--text);">powerW</code></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

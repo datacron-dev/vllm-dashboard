@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+squashfs-root/
+AppImage/*.AppImage
+
+# NPM cache
+.npm-cache/
+.electron-cache/
+
+# Electron app data (per-platform)
+.electron-app/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets / API keys
+.env
+.env.*
+!/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# vLLM dashboard config (user-specific, generated at runtime)
+# Not tracked — created in Electron userData on first run

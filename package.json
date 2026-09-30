@@ -1,0 +1,42 @@
+{
+  "name": "vllm-dashboard",
+  "version": "0.1.0",
+  "description": "Lightweight Electron dashboard for monitoring a local vLLM server (PPLX 27B on DGX Spark)",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "ELECTRON_ENABLE_LOGGING=1 electron .",
+    "build": "electron-builder --linux AppImage",
+    "build:dir": "electron-builder --linux dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "com.devteam.vllm-dashboard",
+    "productName": "vLLM Dashboard",
+    "artifactName": "vllm-dashboard-${version}-${arch}.${ext}",
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development",
+      "icon": "assets/icon.png",
+      "maintainer": "dev-team <dev-team@localhost>",
+      "synopsis": "vLLM Dashboard",
+      "description": "Lightweight Electron dashboard for monitoring a local vLLM server on DGX Spark. Shows server health, KV cache usage, throughput (tok/s), prefix cache hit rate, and live server logs. Includes start/stop/restart controls for the vLLM container."
+    },
+    "appImage": {
+      "artifactName": "vllm-dashboard-${version}-${arch}.AppImage"
+    }
+  }
+}

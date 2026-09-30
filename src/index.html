@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>vLLM Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ Top bar ============ -->
+  <header id="topbar" class="topbar">
+    <div class="topbar__left">
+      <div class="brand">
+        <svg class="brand__logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M0 4.973h9.324V23L0 4.973z" fill="#FDB515"/>
+          <path d="M13.986 4.351L22.378 0l-6.216 23H9.324l4.662-18.649z" fill="#30A2FF"/>
+        </svg>
+        <h1 class="brand__title">vLLM Dashboard</h1>
+      </div>
+      <span class="topbar__sep"></span>
+      <span id="server-endpoint" class="endpoint">http://127.0.0.1:8000</span>
+      <span id="prov-badge" class="prov-badge prov-badge--none" title="Server provenance">
+        <span class="prov-badge__label">No server</span>
+      </span>
+    </div>
+    <div class="topbar__right">
+      <div id="conn-badge" class="badge badge--neutral" title="Connection status">
+        <span class="badge__dot"></span>
+        <span class="badge__label">…</span>
+      </div>
+      <div id="health-badge" class="badge badge--neutral" title="Server status">
+        <span class="badge__dot"></span>
+        <span class="badge__label">Checking…</span>
+      </div>
+      <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">
+        <span class="icon-btn__glyph">☾</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ Main grid ============ -->
+  <main class="grid">
+    <!-- =========================================================
+         ROW 1
+         ========================================================= -->
+
+    <!-- Server control (start/stop) — col 1, row 1 -->
+    <section id="panel-server" class="panel panel--server">
+      <header class="panel__header">
+        <h2 class="panel__title">Server Control</h2>
+        <span class="panel__meta" id="server-meta">—</span>
+      </header>
+      <div class="panel__body panel--server__body">
+        <div class="ctl-buttons">
+          <button id="btn-start" class="ctl-btn ctl-btn--start">Start</button>
+          <button id="btn-stop" class="ctl-btn ctl-btn--stop">Stop</button>
+          <button id="btn-restart" class="ctl-btn ctl-btn--restart">Restart</button>
+        </div>
+        <div class="server-info-grid">
+          <div class="server-info-col">
+            <div class="ctl-status__label">CONTAINER</div>
+            <div class="ctl-status__value" id="server-state">--</div>
+            <div class="ctl-status__label" style="margin-top: 12px;">LAST ACTION</div>
+            <div class="ctl-status__value" id="server-output" style="font-size: 12px; font-weight: 400; color: var(--text-dim);">idle</div>
+          </div>
+          <div class="server-info-col server-info-col--center">
+            <div class="ctl-status__label">SERVER UPTIME</div>
+            <div class="ctl-status__value" id="server-uptime-poll">—</div>
+          </div>
+          <div class="server-info-col"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Throughput — col 3–4, row 1 -->
+    <section id="panel-throughput" class="panel panel--throughput">
+      <header class="panel__header">
+        <h2 class="panel__title">Throughput</h2>
+        <span class="panel__meta" id="throughput-meta">—</span>
+      </header>
+      <div class="panel__body panel--throughput__body">
+        <div class="tstat">
+          <div class="tstat__label">Prompt</div>
+          <div class="tstat__value">
+            <span id="prompt-tok-s">--</span><span class="tstat__unit">tok/s</span>
+          </div>
+          <div class="sparkline-wrap" id="spark-prompt-tok-s">
+            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+              <path class="sparkline-area" d=""/>
+              <path class="sparkline-line" d=""/>
+            </svg>
+          </div>
+        </div>
+        <div class="tstat">
+          <div class="tstat__label">Generation</div>
+          <div class="tstat__value">
+            <span id="gen-tok-s">--</span><span class="tstat__unit">tok/s</span>
+          </div>
+          <div class="sparkline-wrap" id="spark-gen-tok-s">
+            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+              <path class="sparkline-area" d=""/>
+              <path class="sparkline-line" d=""/>
+            </svg>
+          </div>
+        </div>
+        <div class="tstat">
+          <div class="tstat__label">TTFT</div>
+          <div class="tstat__value">
+            <span id="ttft">--</span><span class="tstat__unit">ms</span>
+          </div>
+          <div class="sparkline-wrap" id="spark-ttft">
+            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+              <path class="sparkline-area" d=""/>
+              <path class="sparkline-line" d=""/>
+            </svg>
+          </div>
+        </div>
+        <div class="tstat">
+          <div class="tstat__label">Inter-Token Latency</div>
+          <div class="tstat__value">
+            <span id="itl">--</span><span class="tstat__unit">ms</span>
+          </div>
+          <div class="sparkline-wrap" id="spark-itl">
+            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+              <path class="sparkline-area" d=""/>
+              <path class="sparkline-line" d=""/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         ROW 2
+         ========================================================= -->
+
+    <!-- Server Health — col 1, row 2 -->
+    <section id="panel-health" class="panel panel--health">
+      <header class="panel__header">
+        <h2 class="panel__title">Server Health</h2>
+        <span class="panel__meta" id="health-meta">—</span>
+      </header>
+      <div class="panel__body panel--health__body">
+        <div class="stat">
+          <div class="stat__label">KV Cache</div>
+          <div class="stat__value" id="kv-value">--</div>
+          <div class="bar">
+            <div class="bar__fill" id="kv-bar" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Requests</div>
+          <div class="stat__value stat__value--pair">
+            <span id="req-running">--</span>
+            <span class="stat__sep">/</span>
+            <span id="req-waiting">--</span>
+          </div>
+          <div class="stat__hint">running / waiting</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Server Logs — col 3, row 2 (spans 2) -->
+    <section id="panel-logs" class="panel panel--logs" data-collapsed="false">
+      <header class="panel__header panel__header--logs">
+        <h2 class="panel__title">Server Logs</h2>
+        <div class="panel__tools">
+          <label class="toggle" title="Auto-scroll to bottom of logs">
+            <input type="checkbox" id="log-autoscroll" checked />
+            <span class="toggle__label">Auto-scroll</span>
+          </label>
+          <button id="btn-clear-logs" class="ghost-btn" title="Clear log output">Clear</button>
+        </div>
+      </header>
+      <div class="panel__body panel--logs__body">
+        <div id="server-logs" class="log-view"></div>
+      </div>
+    </section>
+
+    <!-- vLLM Config — col 4, row 2 -->
+    <section id="panel-config" class="panel panel--config">
+      <header class="panel__header">
+        <h2 class="panel__title">vLLM Config</h2>
+        <div class="panel__tools">
+          <button id="cfg-detect" class="ghost-btn" title="Scan common local ports for a model server">Detect</button>
+          <button id="config-save" class="ghost-btn ghost-btn--accent">Save</button>
+        </div>
+      </header>
+      <div class="panel__body panel--config__body">
+        <div class="cfg-field">
+          <label class="cfg-field__label" for="cfg-endpoint">Endpoint</label>
+          <input id="cfg-endpoint" class="cfg-input" type="text" placeholder="http://127.0.0.1:8000" />
+        </div>
+        <div class="cfg-field">
+          <label class="cfg-field__label" for="cfg-preset">Model preset</label>
+          <select id="cfg-preset" class="cfg-input">
+            <option value="">— Custom (edit command below) —</option>
+            <option value="__custom_profile__" disabled>— Saved Profile —</option>
+          </select>
+          <div class="cfg-preset-desc" id="cfg-preset-desc"></div>
+        </div>
+        <div class="cfg-field cfg-field--command">
+          <label class="cfg-field__label" for="cfg-command">Launch command <span class="cfg-field__hint">(docker run … vLLM serve …)</span></label>
+          <textarea id="cfg-command" class="cfg-textarea" spellcheck="false"
+            aria-label="vLLM launch command"></textarea>
+        </div>
+        <div class="cfg-actions">
+          <button id="config-restart" class="ghost-btn">Save &amp; Restart Server</button>
+          <span class="cfg-saved" id="config-saved" aria-live="polite"></span>
+        </div>
+        <!-- Custom profiles section -->
+        <div class="cfg-section">
+          <div class="cfg-section__title">Saved Config Profiles</div>
+          <div id="profiles-list" class="profiles-list"></div>
+          <div class="cfg-section__footer">
+            <button id="btn-add-profile" class="ghost-btn ghost-btn--accent" title="Save current launch command as a named profile">+ Create Custom Config</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         ROW 3
+         ========================================================= -->
+
+    <!-- Prefix Cache — col 1, row 3 -->
+    <section id="panel-prefix-cache" class="panel panel--prefix-cache">
+      <header class="panel__header">
+        <h2 class="panel__title">Prefix Cache</h2>
+        <span class="panel__meta" id="prefix-meta">—</span>
+      </header>
+      <div class="panel__body panel--prefix-cache__body">
+        <div class="bigstat">
+          <div class="bigstat__label">Hit Rate</div>
+          <div class="bigstat__value" id="hit-rate">--</div>
+          <div class="bigstat__hint" id="hit-rate-hint">waiting for metrics</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Context Fill (donut) — col 2, row 3 -->
+    <section id="panel-context-fill" class="panel panel--context-fill">
+      <header class="panel__header">
+        <h2 class="panel__title">Context Fill</h2>
+        <span class="panel__meta" id="context-fill-meta">—</span>
+      </header>
+      <div class="panel__body panel--context-fill__body">
+        <div class="context-fill-content">
+          <div class="context-fill__donut-wrap">
+            <svg class="context-fill__donut" viewBox="0 0 120 120" id="context-fill-donut">
+              <!-- Background track (270° arc = 0.75 of circumference) -->
+              <circle cx="60" cy="60" r="46" fill="none"
+                      stroke="var(--bg-elev)" stroke-width="12"
+                      stroke-linecap="round"
+                      stroke-dasharray="216.77 289.03"
+                      transform="rotate(-135 60 60)"/>
+              <!-- Filled arc (270°) -->
+              <circle cx="60" cy="60" r="46" fill="none"
+                      stroke="var(--accent)" stroke-width="12"
+                      stroke-linecap="round"
+                      stroke-dasharray="0 289.03"
+                      stroke-dashoffset="0"
+                      transform="rotate(-135 60 60)"
+                      id="context-fill-arc"/>
+            </svg>
+            <div class="context-fill__donut-text">
+              <span class="context-fill__donut-value" id="context-fill-value">—</span>
+            </div>
+          </div>
+          <div class="context-fill__status">
+            <span class="context-fill__status-dot"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         ROW 4
+         ========================================================= -->
+
+    <!-- System Monitor — col 1, row 4 (spans cols 1-3) -->
+    <section id="panel-sysmon" class="panel panel--sysmon">
+      <header class="panel__header">
+        <h2 class="panel__title">System Monitor</h2>
+        <span class="panel__meta" id="sysmon-meta">—</span>
+      </header>
+      <div class="panel__body panel--sysmon__body">
+        <!-- GPU section -->
+        <div class="sysmon-section">
+          <div class="sysmon-section__title">GPU</div>
+          <div class="sysmon-row">
+            <div class="sysmon-cell">
+              <div class="sysmon-label">MODEL</div>
+              <div class="sysmon-value" id="sysmon-gpu-name">--</div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">UTILIZATION</div>
+              <div class="sysmon-value" id="sysmon-gpu-util">--</div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">CLOCK</div>
+              <div class="sysmon-value" id="sysmon-gpu-clock">--</div>
+            </div>
+            <div class="sysmon-cell sysmon-cell--temp">
+              <div class="sysmon-label">TEMP</div>
+              <div class="sysmon-value sysmon-value--inline" id="sysmon-gpu-temp">--</div>
+              <div class="sysmon-inline-bar sysmon-temp-bar">
+                <div class="sysmon-temp-bar__fill" id="sysmon-temp-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="sysmon-cell sysmon-cell--power">
+              <div class="sysmon-label">POWER</div>
+              <div class="sysmon-value sysmon-value--inline" id="sysmon-gpu-power">--</div>
+              <div class="sysmon-inline-bar sysmon-power-bar">
+                <div class="sysmon-power-bar__fill" id="sysmon-power-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">DRIVER</div>
+              <div class="sysmon-value" id="sysmon-gpu-driver">--</div>
+            </div>
+          </div>
+        </div>
+        <!-- VRAM / Memory section -->
+        <div class="sysmon-section">
+          <div class="sysmon-section__title">VRAM / MEMORY</div>
+          <div class="sysmon-row">
+            <div class="sysmon-cell sysmon-cell--wide">
+              <div class="sysmon-label">UNIFIED MEMORY</div>
+              <div class="sysmon-value sysmon-value--wide" id="sysmon-gpu-mem">--</div>
+              <div class="sysmon-mem-bar">
+                <div id="sysmon-gpu-mem-bar" class="sysmon-mem-bar__fill" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- System section -->
+        <div class="sysmon-section">
+          <div class="sysmon-section__title">SYSTEM</div>
+          <div class="sysmon-row">
+            <div class="sysmon-cell">
+              <div class="sysmon-label">OS</div>
+              <div class="sysmon-value" id="sysmon-os">--</div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">ARCH</div>
+              <div class="sysmon-value" id="sysmon-arch">--</div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">CPU</div>
+              <div class="sysmon-value" id="sysmon-cpu">--</div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">CORES</div>
+              <div class="sysmon-value" id="sysmon-cores">--</div>
+            </div>
+            <div class="sysmon-cell sysmon-cell--mem">
+              <div class="sysmon-label">MEMORY</div>
+              <div class="sysmon-value sysmon-value--inline" id="sysmon-mem">--</div>
+              <div class="sysmon-inline-bar sysmon-sysmem-bar">
+                <div class="bar__fill" id="sysmon-mem-bar" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="sysmon-cell">
+              <div class="sysmon-label">KERNEL</div>
+              <div class="sysmon-value" id="sysmon-kernel">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

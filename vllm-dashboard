@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Wrapper launcher for vLLM Dashboard.
+#
+# Electron's SUID chrome-sandbox helper is not root-owned inside an AppImage,
+# so the app must be launched with --no-sandbox. Additionally, the GPU process
+# crashes on headless/SSH sessions, so we disable GPU acceleration.
+#
+# This wrapper adds both flags automatically so you can just run:
+#
+#   ~/.local/bin/vllm-dashboard
+#
+# Or, equivalently, from the application menu (the .desktop entry already
+# includes both flags).
+
+set -euo pipefail
+exec "$(dirname "$0")/vllm-dashboard.AppImage" \
+  --no-sandbox \
+  --disable-gpu \
+  "$@"
