@@ -273,6 +273,53 @@ const PRESETS = [
       "    --speculative-config '{\"method\":\"mtp\",\"model\":\"/models/gemma4-draft\",\"num_speculative_tokens\":4,\"moe_backend\":\"triton\"}'",
     ].join('\n'),
   },
+  // -----------------------------------------------------------------------
+  // Qwen3.6-35B-A3B-NVFP4-Atlas-Local — Atlas engine + local model mount
+  // Uses the Atlas (airawatraj) optimized vLLM build (vllm-dflash2:lmheadfix)
+  // with the Unsloth NVFP4-Fast checkpoint stored locally on disk.
+  // The Atlas engine provides the correct backends (cutlass, flashinfer,
+  // mamba) for the NVFP4 quantization — stock vLLM would fail to load it.
+  // -----------------------------------------------------------------------
+  {
+    id: 'qwen36-35b-a3b-nvfp4-atlas-local',
+    label: 'Qwen3.6-35B-A3B-NVFP4-Atlas-Local (NVFP4, Atlas engine, local mount)',
+    description: 'Unsloth NVFP4-Fast + vllm-dflash2 Atlas engine, local model mount for portability',
+    command: [
+      // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
+      'VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
+      '  -p 127.0.0.1:8000:8000',
+      // Local model mount — unsloth/Qwen3.6-35B-A3B-NVFP4-Fast (~20 GB).
+      // Read-only mount so the container can't modify weights on disk.
+      '  -v $HOME/models/unsloth-Qwen3.6-35B-A3B-NVFP4-Fast:/models/qwen36:ro',
+      // HuggingFace cache — so any cached weights survive container restarts.
+      '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
+      // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
+      '  -v $HOME/.cache/vllm:/root/.cache/vllm',
+      '  --name qwen36-local',
+      // Atlas engine — provides the correct backends for NVFP4 + Mamba-2.
+      // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
+      '  vllm-dflash2:lmheadfix',
+      '  /models/qwen36',
+      // Explicit backends for NVFP4 on GB10 (cutlass mamba + flashinfer attention).
+      '    --kv-cache-dtype fp8',
+      '    --moe-backend cutlass',
+      '    --attention-backend flashinfer',
+      '    --gpu-memory-utilization 0.85',
+      '    --max-model-len 131072',
+      '    --max-num-seqs 8',
+      '    --max-num-batched-tokens 16384',
+      // Performance & memory flags.
+      '    --enable-prefix-caching',
+      '    --load-format fastsafetensors',
+      '    --quantization compressed-tensors',
+      // Tool-calling & reasoning.
+      '    --enable-auto-tool-choice',
+      '    --tool-call-parser qwen3_coder',
+      '    --reasoning-parser qwen3',
+      '    --mamba-ssm-cache-dtype float32',
+      '    --mamba-cache-mode align',
+    ].join('\n'),
+  },
 ];
 
 // ---------------------------------------------------------------------------
