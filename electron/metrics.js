@@ -301,6 +301,15 @@ class MetricsPoller extends EventEmitter {
       // block counts directly — the frontend can compute usage %.
       prefixCacheTokensUsed = cachedBlocks * 16;
       prefixCacheMaxTokens = totalBlocks * 16;
+    } else {
+      // Fallback for older vLLM builds (e.g. Atlas/vllm-dflash2) that don't
+      // expose block-count gauges. Use the KV cache usage percentage × the
+      // max model length as a rough proxy.  16 bytes/token (FP8 KV) is the
+      // per-token KV cache footprint per sequence.
+      if (kvUsagePct != null) {
+        prefixCacheMaxTokens = 262144 * 8;     // rough max tokens * 16 bytes / 2
+        prefixCacheTokensUsed = Math.round((kvUsagePct / 100) * prefixCacheMaxTokens);
+      }
     }
 
     // Recent requests — derive from request counters.
