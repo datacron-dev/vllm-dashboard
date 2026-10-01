@@ -42,13 +42,13 @@ function formatPct(v) {
 
 function formatTTFT(v) {
   if (v == null || Number.isNaN(v)) return '--';
-  if (v >= 1000) return (v / 1000).toFixed(2) + 's';
+  // removed: values are already in ms, unit label is ms
   return Math.round(v).toString();
 }
 
 function formatITL(v) {
   if (v == null || Number.isNaN(v)) return '--';
-  if (v >= 1000) return (v / 1000).toFixed(2) + 's';
+  // removed: values are already in ms, unit label is ms
   return Math.round(v).toString();
 }
 
