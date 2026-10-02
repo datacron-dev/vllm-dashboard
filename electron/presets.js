@@ -106,6 +106,59 @@ const PRESETS = [
   },
 
   // -----------------------------------------------------------------------
+  // Qwen3.5-35B-A3B-NVFP4-RedHatAI — RedHatAI NVFP4 + DSpeculative
+  // RedHatAI's Qwen3.5 with DSpeculative (8 speculative tokens, triton moe_backend).
+  // -----------------------------------------------------------------------
+  {
+    id: 'qwen35-35b-a3b-nvfp4-dspark',
+    label: 'Qwen3.5-35B-A3B-NVFP4-RedHatAI (NVFP4, DSpec-8, triton moe_backend)',
+    description: 'RedHatAI Qwen3.5 NVFP4 MoE 35B/3B, DSpec 8-token speculative, Triton backends, 131K context',
+    command: [
+      // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
+      // VLLM_NVFP4_GEMM_BACKEND=marlin — override FP4 GEMM backend to Marlin.
+      // VLLM_USE_FLASHINFER_MOE_FP4=0 — disable FlashInfer MoE FP4 (use triton).
+      // VLLM_TEST_FORCE_FP8_MARLIN=1 — force FP8 Marlin path.
+      'VLLM_NVFP4_GEMM_BACKEND=marlin VLLM_USE_FLASHINFER_MOE_FP4=0 VLLM_TEST_FORCE_FP8_MARLIN=1 VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --privileged --ipc=host',
+      '  --shm-size 64g',
+      '  -p 127.0.0.1:8000:8000',
+      '  -p 127.0.0.1:8001:8001',
+      // Speculative draft model — local path matching the downloaded checkpoint.
+      '  -v $HOME/models/RedHatAI/Qwen3.5-35B-A3B-speculator.dspark:/models/qwen35-dspark:ro',
+      // HuggingFace cache — so any cached weights survive container restarts.
+      '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
+      // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
+      '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/vllm:/root/.cache/vllm',
+      '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/flashinfer:/root/.cache/flashinfer',
+      '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/nv:/root/.nv',
+      '  --name my-vllm',
+      // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
+      '  vllm-dflash2:lmheadfix',
+      '  RedHatAI/Qwen3.5-35B-A3B-NVFP4',
+      // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
+      '    --speculative-model /models/qwen35-dspark',
+      "    --speculative-config '{"method":"dspark","num_speculative_tokens":8,"moe_backend":"triton"}'",
+      // Trust remote code — required for RedHatAI custom model files.
+      '    --trust-remote-code',
+      // Explicit backends for NVFP4 on GB10 (Blackwell) with Triton.
+      '    --attention-backend TRITON_ATTN',
+      '    --moe-backend triton',
+      '    --kv-cache-dtype fp8',
+      // GB10-specific: --gpu-memory-utilization 0.85, --max-num-seqs 4.
+      '    --gpu-memory-utilization 0.85',
+      '    --max-model-len 131072',
+      '    --max-num-seqs 4',
+      '    --max-num-batched-tokens 8192',
+      // Performance flags.
+      '    --async-scheduling',
+      '    --enable-prefix-caching',
+      '    --disable-log-stats=false',
+      // Tool-calling & reasoning.
+      '    --enable-auto-tool-choice',
+      '    --tool-call-parser qwen3_coder',
+      '    --reasoning-parser qwen3',
+    ].join('\n'),
+  },
+  // -----------------------------------------------------------------------
   // Qwen3.6-35B-A3B-NVFP4-Heretic — Heretic engine + local model mount
   // Uses the Heretic (AEON-7) optimized vLLM build (vllm-dflash2:lmheadfix)
   // with the Qwen3.6-35B-A3B-NVFP4 checkpoint stored locally on disk.
