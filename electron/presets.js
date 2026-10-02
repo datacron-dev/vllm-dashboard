@@ -106,13 +106,13 @@ const PRESETS = [
   },
 
   // -----------------------------------------------------------------------
-  // Qwen3.5-35B-A3B-NVFP4-RedHatAI — RedHatAI NVFP4 + DSpeculative
-  // RedHatAI's Qwen3.5 with DSpeculative (8 speculative tokens, triton moe_backend).
+  // Qwen3.6-35B-A3B-NVFP4-RedHatAI — RedHatAI NVFP4 + DSpeculative
+  // RedHatAI's Qwen3.6 with DSpeculative (8 speculative tokens, triton moe_backend).
   // -----------------------------------------------------------------------
   {
-    id: 'qwen35-35b-a3b-nvfp4-dspark',
-    label: 'Qwen3.5-35B-A3B-NVFP4-RedHatAI (NVFP4, DSpec-8, triton moe_backend)',
-    description: 'RedHatAI Qwen3.5 NVFP4 MoE 35B/3B, DSpec 8-token speculative, Triton backends, 131K context',
+    id: 'qwen36-35b-a3b-nvfp4-dspark',
+    label: 'Qwen3.6-35B-A3B-NVFP4-RedHatAI (NVFP4, DSpec-8, triton moe_backend)',
+    description: 'RedHatAI Qwen3.6 NVFP4 MoE 35B/3B, DSpec 8-token speculative, Triton backends, 131K context',
     command: [
       // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
       // VLLM_NVFP4_GEMM_BACKEND=marlin — override FP4 GEMM backend to Marlin.
@@ -123,7 +123,7 @@ const PRESETS = [
       '  -p 127.0.0.1:8000:8000',
       '  -p 127.0.0.1:8001:8001',
       // Speculative draft model — local path matching the downloaded checkpoint.
-      '  -v $HOME/models/RedHatAI/Qwen3.5-35B-A3B-speculator.dspark:/models/qwen35-dspark:ro',
+      '  -v $HOME/models/RedHatAI/Qwen3.6-35B-A3B-speculator.dspark:/models/qwen36-dspark:ro',
       // HuggingFace cache — so any cached weights survive container restarts.
       '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
       // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
@@ -133,9 +133,9 @@ const PRESETS = [
       '  --name my-vllm',
       // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
       '  vllm-dflash2:lmheadfix',
-      '  RedHatAI/Qwen3.5-35B-A3B-NVFP4',
+      '  RedHatAI/Qwen3.6-35B-A3B-NVFP4',
       // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
-      '    --speculative-model /models/qwen35-dspark',
+      '    --speculative-model /models/qwen36-dspark',
       "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
       // Trust remote code — required for RedHatAI custom model files.
       '    --trust-remote-code',
