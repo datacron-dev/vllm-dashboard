@@ -56,6 +56,7 @@ const PRESETS = [
       "    --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3,\"moe_backend\":\"triton\"}'",
     ].join('\n'),
   },
+
   {
     id: 'nemotron-35-lightning-30b-a3b-nvfp4',
     label: 'Nemotron-3.5-Lightning-30B-A3B-NVFP4 (NVFP4, DSpark-7, mamba)',
@@ -103,36 +104,57 @@ const PRESETS = [
       "    --speculative-config '{\"method\":\"dspark\",\"model\":\"/models/lightning-draft\",\"num_speculative_tokens\":7}'",
     ].join('\n'),
   },
+
+  // -----------------------------------------------------------------------
+  // Qwen3.6-35B-A3B-NVFP4-Heretic — Heretic engine + local model mount
+  // Uses the Heretic (AEON-7) optimized vLLM build (vllm-dflash2:lmheadfix)
+  // with the Qwen3.6-35B-A3B-NVFP4 checkpoint stored locally on disk.
+  // The Heretic engine provides the correct backends (cutlass, flashinfer,
+  // mamba) for the NVFP4 quantization — stock vLLM would fail to load it.
+  // -----------------------------------------------------------------------
   {
-    id: 'qwen38-27b-dflash2',
-    label: 'Qwen38-27B-dflash2 (PPLX 27B)',
-    description: 'PPLX 27B, FP8 mixed-precision, dflash speculative decoding, 64 layers',
+    id: 'qwen36-35b-a3b-nvfp4-heretic',
+    label: 'Qwen3.6-35B-A3B-NVFP4-Heretic (NVFP4, Heretic engine, local mount)',
+    description: 'AEON-7 Heretic engine + vllm-dflash2, local model mount for portability',
     command: [
-      'docker run -d --gpus all --ipc=host',
+      // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
+      'VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
       '  -p 127.0.0.1:8000:8000',
-      '  -v $HOME/.local/share/perplexity-rpc-server/local-models/models--perplexity-ai--pplx-computer-qwen-3-8-27b-dflash2-20260824:/models/repo:ro',
-      '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/vllm:/root/.cache/vllm',
-      '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/flashinfer:/root/.cache/flashinfer',
-      '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/nv:/root/.nv',
-      '  --name my-vllm',
+      // Local model mount — AEON-7/Qwen3.6-35B-A3B-NVFP4-heretic (~20 GB).
+      // Read-only mount so the container can't modify weights on disk.
+      '  -v $HOME/models/AEON-7/Qwen3.6-35B-A3B-NVFP4-heretic:/models/qwen36:ro',
+      // HuggingFace cache — so any cached weights survive container restarts.
+      '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
+      // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
+      '  -v $HOME/.cache/vllm:/root/.cache/vllm',
+      '  --name qwen36-heretic',
+      // Heretic engine — provides the correct backends for NVFP4 + Mamba-2.
+      // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
       '  vllm-dflash2:lmheadfix',
-      '  /models/repo/snapshots/f1cb0e1cb8dba5876a51b44f276c2143adf7f27c',
-      '    --served-model-name qwen38-27b-dflash2-20260824',
-      '    --host 0.0.0.0 --port 8000',
-      '    --gpu-memory-utilization 0.80',
-      '    --max-model-len 262144',
-      '    --max-num-seqs 6',
-      '    --max-num-batched-tokens 8192',
-      '    --enable-prefix-caching',
-      '    --enable-chunked-prefill',
-      '    --async-scheduling',
+      '  /models/qwen36',
+      // Explicit backends for NVFP4 on GB10 (cutlass mamba + flashinfer attention).
       '    --kv-cache-dtype fp8',
-      "    --speculative-config '{\"method\":\"dflash\",\"model\":\"/models/repo/snapshots/f1cb0e1cb8dba5876a51b44f276c2143adf7f27c/draft\",\"num_speculative_tokens\":7}'",
-      '    --reasoning-parser qwen3',
-      '    --tool-call-parser qwen3_coder',
+      '    --moe-backend cutlass',
+      '    --attention-backend flashinfer',
+      '    --gpu-memory-utilization 0.85',
+      '    --max-model-len 131072',
+      '    --max-num-seqs 8',
+      '    --max-num-batched-tokens 16384',
+      // Performance & memory flags.
+      '    --enable-prefix-caching',
+      '    --load-format fastsafetensors',
+      '    --quantization compressed-tensors',
+      // Tool-calling & reasoning.
       '    --enable-auto-tool-choice',
+      '    --tool-call-parser qwen3_coder',
+      '    --reasoning-parser qwen3',
+      '    --mamba-ssm-cache-dtype float32',
+      '    --mamba-cache-mode align',
+      // Multimodal vision encoder — data-parallel TP mode for the vision tower.
+      '    --mm-encoder-tp-mode data',
     ].join('\n'),
   },
+
   {
     id: 'qwen3.6-35b-a3b-fp8',
     label: 'Qwen3.6-35B-A3B-FP8 (Qwen3.6 MoE)',
@@ -163,6 +185,7 @@ const PRESETS = [
       '    --enable-auto-tool-choice',
     ].join('\n'),
   },
+
   // -----------------------------------------------------------------------
   // Qwen3.8-27B-NVFP4 (NVFP4, MTP-3, qwen3_xml)
   // Source: recipes.vllm.ai/Qwen/Qwen3.8-27B — NVFP4, TP1, single GPU
@@ -211,113 +234,35 @@ const PRESETS = [
       "    --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3}'",
     ].join('\n'),
   },
-  // -----------------------------------------------------------------------
-  // Gemma-4-26B-A4B-NVFP4 (NVFP4, MTP-4, triton moe_backend, gemma4)
-  // Source: recipes.vllm.ai — NVFP4 MoE, TP1, GB10
-  // 25.2B total / 3.8B active params, 30 layers, 256K context, multimodal (text + image)
-  // Aligned with NVIDIA's official Gemma-4 docker recipe.
-  // -----------------------------------------------------------------------
+
   {
-    id: 'gemma4-26b-a4b-nvfp4',
-    label: 'Gemma-4-26B-A4B-NVFP4 (NVFP4, MTP-4, triton moe_backend, gemma4)',
-    description: 'NVIDIA ModelOpt NVFP4 MoE 25.2B/3.8B, TP1, MTP-4 draft (gemma4-it-assistant), triton moe_backend, gemma4 parsers, 256K context, multimodal',
+    id: 'qwen38-27b-dflash2',
+    label: 'Qwen38-27B-dflash2 (PPLX 27B)',
+    description: 'PPLX 27B, FP8 mixed-precision, dflash speculative decoding, 64 layers',
     command: [
-      // Environment variables matching NVIDIA's recipe.
-      // VLLM_USE_V2_MODEL_RUNNER=1 enables the newer v2 model runner for improved performance.
-      // VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
-      'VLLM_USE_V2_MODEL_RUNNER=1 VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --privileged --ipc=host',
+      'docker run -d --gpus all --ipc=host',
       '  -p 127.0.0.1:8000:8000',
-      // Model files — local path matching the downloaded checkpoint.
-      // Users should place their models in $HOME/models/ or adjust these paths.
-      // Swap to nvidia/Gemma-4-26B-A4B-NVFP4 if using HuggingFace auto-download.
-      '  -v $HOME/models/Gemma-4-26B-A4B-NVFP4:/models/gemma4:ro',
-      // MTP draft model (Gemma-4 IT Assistant) — optional. Remove this line and the
-      // --speculative-config to run without speculative decoding.
-      '  -v $HOME/models/gemma4-26B-A4B-it-assistant:/models/gemma4-draft:ro',
-      '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
+      '  -v $HOME/.local/share/perplexity-rpc-server/local-models/models--perplexity-ai--pplx-computer-qwen-3-8-27b-dflash2-20260824:/models/repo:ro',
       '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/vllm:/root/.cache/vllm',
       '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/flashinfer:/root/.cache/flashinfer',
       '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/nv:/root/.nv',
       '  --name my-vllm',
       '  vllm-dflash2:lmheadfix',
-      '  /models/gemma4',
-      // Trust remote code — required for NVIDIA ModelOpt custom model files.
-      '    --trust-remote-code',
-      // Explicit backends for GB10 (Blackwell) NVFP4.
-      // flashinfer for attention, marlin for MoE (or triton via --speculative-config).
-      '    --attention-backend flashinfer',
-      '    --moe-backend marlin',
-      // Chat template — Gemma-4 specific tool chat format for proper tool-calling.
-      '    --chat-template /models/gemma4/chat_template.jinja',
-      // FP8 KV cache — halves KV cache memory footprint.
-      '    --kv-cache-dtype fp8',
-      // GB10-specific: --gpu-memory-utilization 0.75, --tensor-parallel-size 1.
-      '    --gpu-memory-utilization 0.75',
-      '    --tensor-parallel-size 1',
+      '  /models/repo/snapshots/f1cb0e1cb8dba5876a51b44f276c2143adf7f27c',
+      '    --served-model-name qwen38-27b-dflash2-20260824',
+      '    --host 0.0.0.0 --port 8000',
+      '    --gpu-memory-utilization 0.80',
       '    --max-model-len 262144',
-      '    --max-num-seqs 8',
+      '    --max-num-seqs 6',
       '    --max-num-batched-tokens 8192',
-      // Performance flags.
+      '    --enable-prefix-caching',
       '    --enable-chunked-prefill',
       '    --async-scheduling',
-      '    --enable-prefix-caching',
-      '    --load-format fastsafetensors',
-      // Tool-calling and reasoning — Gemma-4 native parsers.
-      '    --enable-auto-tool-choice',
-      '    --tool-call-parser gemma4',
-      '    --reasoning-parser gemma4',
-      // Multimodal vision encoder — data-parallel TP mode for the vision tower.
-      '    --mm-encoder-tp-mode data',
-      // MTP speculative decoding — 4 speculative tokens using the local Gemma-4 IT Assistant draft model.
-      // moe_backend triton is required for the MTP draft with this model's MoE architecture.
-      "    --speculative-config '{\"method\":\"mtp\",\"model\":\"/models/gemma4-draft\",\"num_speculative_tokens\":4,\"moe_backend\":\"triton\"}'",
-    ].join('\n'),
-  },
-  // -----------------------------------------------------------------------
-  // Qwen3.6-35B-A3B-NVFP4-Atlas-Local — Atlas engine + local model mount
-  // Uses the Atlas (airawatraj) optimized vLLM build (vllm-dflash2:lmheadfix)
-  // with the Unsloth NVFP4-Fast checkpoint stored locally on disk.
-  // The Atlas engine provides the correct backends (cutlass, flashinfer,
-  // mamba) for the NVFP4 quantization — stock vLLM would fail to load it.
-  // -----------------------------------------------------------------------
-  {
-    id: 'qwen36-35b-a3b-nvfp4-atlas-local',
-    label: 'Qwen3.6-35B-A3B-NVFP4-Atlas-Local (NVFP4, Atlas engine, local mount)',
-    description: 'Unsloth NVFP4-Fast + vllm-dflash2 Atlas engine, local model mount for portability',
-    command: [
-      // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
-      'VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
-      '  -p 127.0.0.1:8000:8000',
-      // Local model mount — unsloth/Qwen3.6-35B-A3B-NVFP4-Fast (~20 GB).
-      // Read-only mount so the container can't modify weights on disk.
-      '  -v $HOME/models/unsloth-Qwen3.6-35B-A3B-NVFP4-Fast:/models/qwen36:ro',
-      // HuggingFace cache — so any cached weights survive container restarts.
-      '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
-      // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
-      '  -v $HOME/.cache/vllm:/root/.cache/vllm',
-      '  --name qwen36-local',
-      // Atlas engine — provides the correct backends for NVFP4 + Mamba-2.
-      // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
-      '  vllm-dflash2:lmheadfix',
-      '  /models/qwen36',
-      // Explicit backends for NVFP4 on GB10 (cutlass mamba + flashinfer attention).
       '    --kv-cache-dtype fp8',
-      '    --moe-backend cutlass',
-      '    --attention-backend flashinfer',
-      '    --gpu-memory-utilization 0.85',
-      '    --max-model-len 131072',
-      '    --max-num-seqs 8',
-      '    --max-num-batched-tokens 16384',
-      // Performance & memory flags.
-      '    --enable-prefix-caching',
-      '    --load-format fastsafetensors',
-      '    --quantization compressed-tensors',
-      // Tool-calling & reasoning.
-      '    --enable-auto-tool-choice',
-      '    --tool-call-parser qwen3_coder',
+      "    --speculative-config '{\"method\":\"dflash\",\"model\":\"/models/repo/snapshots/f1cb0e1cb8dba5876a51b44f276c2143adf7f27c/draft\",\"num_speculative_tokens\":7}'",
       '    --reasoning-parser qwen3',
-      '    --mamba-ssm-cache-dtype float32',
-      '    --mamba-cache-mode align',
+      '    --tool-call-parser qwen3_coder',
+      '    --enable-auto-tool-choice',
     ].join('\n'),
   },
 ];

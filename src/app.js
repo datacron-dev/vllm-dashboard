@@ -752,48 +752,28 @@ const config = {
   },
 
   /**
-   * Create a new custom config profile from the current launch command.
+   * "Create Custom Config" -- clear the launch command and switch to custom mode.
+   * This prepares the textarea for the user to type their own command.
    */
-  async addProfile() {
-    const saved = $('#profile-saved');
-    if (saved) { saved.textContent = 'saving…'; saved.classList.remove('cfg-saved--ok', 'cfg-saved--err'); }
-
-    if (!window.vllm || typeof window.vllm.createProfile !== 'function') {
-      if (saved) { saved.textContent = 'save unsupported'; saved.classList.add('cfg-saved--err'); }
-      return;
-    }
-
-    // Ask the user for a name.
+  addProfile() {
     const cmd = $('#cfg-command');
-    const defaultName = (cmd.value || '').match(/--served-model-name\s+([^\s"',"]+)/)
-      ? (RegExp.$1 || 'Custom Config')
-      : 'Custom Config';
-    const name = prompt('Name for this config profile:', defaultName || 'Custom Config');
-    if (!name || !name.trim()) {
-      if (saved) { saved.textContent = 'cancelled'; saved.classList.remove('cfg-saved--ok', 'cfg-saved--err'); }
-      return;
-    }
+    const desc = $('#cfg-preset-desc');
+    const preset = $('#cfg-preset');
+    const saved = $('#profile-saved');
 
-    try {
-      const result = await window.vllm.createProfile(name);
-      if (result && result.ok) {
-        if (saved) {
-          saved.textContent = `profile "${result.profile.name}" saved`;
-          saved.classList.add('cfg-saved--ok');
-        }
-        // Reload the profile list.
-        this.loadProfiles();
-      } else {
-        if (saved) {
-          saved.textContent = `create failed: ${result.error}`;
-          saved.classList.add('cfg-saved--err');
-        }
-      }
-    } catch (e) {
-      if (saved) {
-        saved.textContent = `create error: ${e.message}`;
-        saved.classList.add('cfg-saved--err');
-      }
+    // Clear the command textarea.
+    if (cmd) cmd.value = '';
+    // Switch dropdown to "Custom".
+    if (preset) preset.value = '';
+    // Clear the preset description.
+    if (desc) desc.textContent = '';
+    // Remove profile highlight.
+    this.unhighlightProfile();
+
+    if (saved) {
+      saved.textContent = 'cleared — edit and use "Save & Restart Server"';
+      saved.classList.add('cfg-saved--ok');
+      setTimeout(() => { saved.textContent = ''; saved.classList.remove('cfg-saved--ok', 'cfg-saved--err'); }, 3000);
     }
   },
 

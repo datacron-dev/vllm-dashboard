@@ -84,11 +84,11 @@ function loadConfig() {
     const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     if (raw && typeof raw === 'object') {
       if (typeof raw.vllmEndpoint === 'string') SETTINGS.vllmEndpoint = raw.vllmEndpoint || SETTINGS.vllmEndpoint;
-      // Only restore the saved command if it still matches one of the current presets.
-      // If presets have changed (e.g. a model preset was updated), fall back to the
-      // default so the user sees the latest flags (like a corrected --gpu-memory-utilization).
-      if (typeof raw.vllmCommand === 'string') {
-        if (matchPresetId(raw.vllmCommand)) {
+      // Restore the saved command if it still matches a preset or a saved profile.
+      // Presets that have changed (e.g. updated flags) are detected by exact match.
+      // Custom commands are preserved as-is so the user's edits survive restarts.
+      if (typeof raw.vllmCommand === 'string' && raw.vllmCommand.trim()) {
+        if (matchPresetId(raw.vllmCommand) || matchProfileId(profiles, raw.vllmCommand)) {
           SETTINGS.vllmCommand = raw.vllmCommand;
         }
         // else: keep the default (PRESSETS[0]) — the saved command is stale.
