@@ -118,7 +118,7 @@ const PRESETS = [
       // VLLM_NVFP4_GEMM_BACKEND=marlin — override FP4 GEMM backend to Marlin.
       // VLLM_USE_FLASHINFER_MOE_FP4=0 — disable FlashInfer MoE FP4 (use triton).
       // VLLM_TEST_FORCE_FP8_MARLIN=1 — force FP8 Marlin path.
-      'VLLM_NVFP4_GEMM_BACKEND=marlin VLLM_USE_FLASHINFER_MOE_FP4=0 VLLM_TEST_FORCE_FP8_MARLIN=1 VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --privileged --ipc=host',
+      'VLLM_NVFP4_GEMM_BACKEND=marlin VLLM_USE_FLASHINFER_MOE_FP4=0 VLLM_TEST_FORCE_FP8_MARLIN=1 VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
       '  --shm-size 64g',
       '  -p 127.0.0.1:8000:8000',
       '  -p 127.0.0.1:8001:8001',
@@ -156,7 +156,6 @@ const PRESETS = [
       '    --disable-log-stats=false',
       // Tool-calling & reasoning (RedHatAI preset).
       '    --enable-auto-tool-choice',
-      '    --load-format fastsafetensors',
       '    --tool-call-parser qwen3_coder',
       '    --reasoning-parser qwen3',
     ].join('\n'),
