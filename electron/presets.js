@@ -106,23 +106,47 @@ const PRESETS = [
   },
 
   // -----------------------------------------------------------------------
-  // Qwen3.6-35B-A3B-NVFP4-RedHatAI — RedHatAI NVFP4 + DSpeculative
-  // RedHatAI's Qwen3.6 (NVFP4 MoE 35B/3B) with DSpeculative (8 tokens, triton moe_backend).
-  // Verified working command for DGX Spark (GB10).
+  // RedHatAI Qwen3.6-35B-A3B-NVFP4 + DSpark speculator
+  //
+  // Sources of truth:
+  //   - RedHatAI/Qwen3.6-35B-A3B-speculator.dspark README (HuggingFace):
+  //     vllm serve Qwen/Qwen3.6-35B-A3B --speculative-config
+  //     '{"model":"RedHatAI/Qwen3.6-35B-A3B-speculator.dspark",
+  //       "num_speculative_tokens":8,"method":"dspark"}'
+  //     Checkpoint: block_size 8, 5-layer bf16 draft trained on
+  //     Qwen/Qwen3.6-35B-A3B.
+  //   - stevescargall.com "vLLM Recipe: RedHatAI/Qwen3.6-35B-A3B-NVFP4 on
+  //     DGX Spark" - GB10/SM121, 128 GB unified memory:
+  //       --quantization=compressed-tensors   (Red Hat quantized with
+  //                                           llm-compressor; NOT modelopt)
+  //       --language-model-only              (skip ~0.9 GB vision encoder)
+  //       --moe-backend=flashinfer_cutlass   (Blackwell NVFP4 MoE fast path)
+  //       --kv-cache-dtype=fp8_e4m3
+  //       --gpu-memory-utilization=0.87
+  //       --max-model-len=131072
+  //       --max-num-seqs=32
+  //       --max-num-batched-tokens=32768
+  //       --enable-chunked-prefill --enable-prefix-caching
+  //   - DSpark spec: num_speculative_tokens must equal the checkpoint's
+  //     block_size (8). The draft is bf16 while the target is NVFP4, so the
+  //     draft's MoE kernel must differ from the target's flashinfer_cutlass
+  //     - "triton" is pinned inside --speculative-config for the draft.
+  //
+  // NOTE: The DSpark speculator is referenced by its HuggingFace repo ID, so
+  // the container fetches it on first start (the HF cache volume below is
+  // mounted, so it only downloads once).
   // -----------------------------------------------------------------------
   {
     id: 'qwen36-35b-a3b-nvfp4-dspark',
-    label: 'Qwen3.6-35B-A3B-NVFP4-RedHatAI (NVFP4, DSpec-8, triton moe_backend)',
-    description: 'RedHatAI Qwen3.6 NVFP4 MoE 35B/3B, DSpec 8-token speculative, Triton backends, 131K context',
+    label: 'Qwen3.6-35B-A3B-NVFP4-RedHatAI (NVFP4, DSpark-8, flashinfer_cutlass)',
+    description: 'RedHatAI Qwen3.6 NVFP4 MoE 35B/3B + DSpark 8-token draft, compressed-tensors, flashinfer_cutlass MoE, 131K context',
     command: [
-      // Env vars exported before docker run — these tell vLLM which backends to use.
+      // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains.
       'VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
       '  --shm-size 64g',
       '  -p 127.0.0.1:8000:8000',
-      '  -p 127.0.0.1:8001:8001',
-      // Model files — RedHatAI Qwen3.5 NVFP4 MoE 35B/3B speculator draft model.
-      '  -v $HOME/models/RedHatAI/Qwen3.6-35B-A3B-speculator.dspark:/models/qwen36-dspark:ro',
-      // HuggingFace cache — so any cached weights survive container restarts.
+      // HuggingFace cache - RedHatAI/Qwen3.6-35B-A3B-NVFP4 + DSpark speculator
+      // are both fetched here on first start; subsequent boots are instant.
       '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
       // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
       '  -v $HOME/.local/share/perplexity-rpc-server/vllm-docker/vllm-openai-nightly-aa99034-dflash2/cache/vllm:/root/.cache/vllm',
@@ -131,30 +155,35 @@ const PRESETS = [
       '  --name my-vllm',
       // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
       '  vllm-dflash2:lmheadfix',
-      // RedHatAI Qwen3.6 NVFP4 MoE model.
+      // RedHatAI's NVFP4 MoE 35B/3B (llm-compressor / compressed-tensors format).
       '  RedHatAI/Qwen3.6-35B-A3B-NVFP4',
-      // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
-      '    --spec-model /models/qwen36-dspark',
-      "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
-      // Trust remote code — required for RedHatAI custom model files.
+      // Trust remote code - required for RedHatAI custom model files.
       '    --trust-remote-code',
-      // Explicit backends for NVFP4 on GB10 (Blackwell) with Triton.
-      '    --attention-backend TRITON_ATTN',
-      '    --moe-backend triton',
-      '    --kv-cache-dtype fp8',
-      // GB10-specific: --gpu-memory-utilization 0.85, --max-num-seqs 4.
-      '    --gpu-memory-utilization 0.85',
+      // Red Hat quantized with llm-compressor -> compressed-tensors (NOT modelopt).
+      '    --quantization compressed-tensors',
+      // Skip the ~0.9 GB vision encoder to free KV cache headroom.
+      '    --language-model-only',
+      // Blackwell NVFP4 MoE routing - verified fast path on GB10/SM121.
+      '    --moe-backend flashinfer_cutlass',
+      '    --kv-cache-dtype fp8_e4m3',
+      // 128 GB unified memory: 0.87 leaves ~17 GB for OS/CUDA runtime + MTP head.
+      '    --gpu-memory-utilization 0.87',
+      // Full native 131K context. Drop to 65536 for more concurrent KV slots.
       '    --max-model-len 131072',
-      '    --max-num-seqs 4',
-      '    --max-num-batched-tokens 8192',
+      '    --max-num-seqs 32',
+      '    --max-num-batched-tokens 32768',
       // Performance flags.
+      '    --enable-chunked-prefill',
       '    --async-scheduling',
       '    --enable-prefix-caching',
-      '    --disable-log-stats=false',
+      // DSpark speculator - 8-token draft (checkpoint block_size = 8).
+      // The draft is bf16 (unquantized), so its MoE kernel must differ from
+      // the target's NVFP4 flashinfer_cutlass; "triton" is the right fit.
+      "    --speculative-config '{\"method\":\"dspark\",\"model\":\"RedHatAI/Qwen3.6-35B-A3B-speculator.dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
       // Tool-calling & reasoning.
+      '    --reasoning-parser qwen3',
       '    --enable-auto-tool-choice',
       '    --tool-call-parser qwen3_coder',
-      '    --reasoning-parser qwen3',
     ].join('\n'),
   },
   // -----------------------------------------------------------------------
