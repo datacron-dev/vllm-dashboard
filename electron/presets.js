@@ -136,7 +136,7 @@ const PRESETS = [
       '  RedHatAI/Qwen3.6-35B-A3B-NVFP4',
       // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
       '    --spec-model /models/qwen36-dspark',
-      "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8}'",
+      "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
       // Trust remote code — required for RedHatAI custom model files.
       '    --trust-remote-code',
       // Explicit backends for NVFP4 on GB10 (Blackwell) with Triton.
