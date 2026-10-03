@@ -107,7 +107,7 @@ const PRESETS = [
 
   // -----------------------------------------------------------------------
   // Qwen3.6-35B-A3B-NVFP4-RedHatAI — RedHatAI NVFP4 + DSpeculative
-  // RedHatAI's Qwen3.5 (NVFP4 MoE 35B/3B) with DSpeculative (8 tokens, triton moe_backend).
+  // RedHatAI's Qwen3.6 (NVFP4 MoE 35B/3B) with DSpeculative (8 tokens, triton moe_backend).
   // Verified working command for DGX Spark (GB10).
   // -----------------------------------------------------------------------
   {
@@ -121,7 +121,7 @@ const PRESETS = [
       '  -p 127.0.0.1:8000:8000',
       '  -p 127.0.0.1:8001:8001',
       // Model files — RedHatAI Qwen3.5 NVFP4 MoE 35B/3B speculator draft model.
-      '  -v $HOME/models/RedHatAI/Qwen3.5-35B-A3B-speculator.dspark:/models/qwen35-dspark:ro',
+      '  -v $HOME/models/RedHatAI/Qwen3.6-35B-A3B-speculator.dspark:/models/qwen36-dspark:ro',
       // HuggingFace cache — so any cached weights survive container restarts.
       '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
       // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
@@ -131,10 +131,10 @@ const PRESETS = [
       '  --name my-vllm',
       // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
       '  vllm-dflash2:lmheadfix',
-      // RedHatAI Qwen3.5 NVFP4 MoE model.
-      '  RedHatAI/Qwen3.5-35B-A3B-NVFP4',
+      // RedHatAI Qwen3.6 NVFP4 MoE model.
+      '  RedHatAI/Qwen3.6-35B-A3B-NVFP4',
       // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
-      '    --spec-model /models/qwen35-dspark',
+      '    --spec-model /models/qwen36-dspark',
       "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
       // Trust remote code — required for RedHatAI custom model files.
       '    --trust-remote-code',
