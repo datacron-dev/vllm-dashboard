@@ -135,8 +135,8 @@ const PRESETS = [
       '  vllm-dflash2:lmheadfix',
       '  RedHatAI/Qwen3.6-35B-A3B-NVFP4',
       // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
-      '    --speculative-model /models/qwen36-dspark',
-      "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
+      '    --spec-model /models/qwen36-dspark',
+      "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8}'",
       // Trust remote code — required for RedHatAI custom model files.
       '    --trust-remote-code',
       // Explicit backends for NVFP4 on GB10 (Blackwell) with Triton.
@@ -145,6 +145,7 @@ const PRESETS = [
       '    --moe-backend triton',
       '    --kv-cache-dtype fp8',
       // GB10-specific: --gpu-memory-utilization 0.85, --max-num-seqs 4.
+      // Note: 0.85 is needed for RedHatAI's NVFP4 model on GB10 (122 GiB).
       '    --gpu-memory-utilization 0.85',
       '    --max-model-len 131072',
       '    --max-num-seqs 4',
@@ -153,8 +154,9 @@ const PRESETS = [
       '    --async-scheduling',
       '    --enable-prefix-caching',
       '    --disable-log-stats=false',
-      // Tool-calling & reasoning.
+      // Tool-calling & reasoning (RedHatAI preset).
       '    --enable-auto-tool-choice',
+      '    --load-format fastsafetensors',
       '    --tool-call-parser qwen3_coder',
       '    --reasoning-parser qwen3',
     ].join('\n'),
