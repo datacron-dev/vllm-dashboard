@@ -107,23 +107,21 @@ const PRESETS = [
 
   // -----------------------------------------------------------------------
   // Qwen3.6-35B-A3B-NVFP4-RedHatAI — RedHatAI NVFP4 + DSpeculative
-  // RedHatAI's Qwen3.6 with DSpeculative (8 speculative tokens, triton moe_backend).
+  // RedHatAI's Qwen3.5 (NVFP4 MoE 35B/3B) with DSpeculative (8 tokens, triton moe_backend).
+  // Verified working command for DGX Spark (GB10).
   // -----------------------------------------------------------------------
   {
     id: 'qwen36-35b-a3b-nvfp4-dspark',
     label: 'Qwen3.6-35B-A3B-NVFP4-RedHatAI (NVFP4, DSpec-8, triton moe_backend)',
     description: 'RedHatAI Qwen3.6 NVFP4 MoE 35B/3B, DSpec 8-token speculative, Triton backends, 131K context',
     command: [
-      // Export VLLM_USE_RUST_FRONTEND=1 for latency/throughput gains under high concurrency.
-      // VLLM_NVFP4_GEMM_BACKEND=marlin — override FP4 GEMM backend to Marlin.
-      // VLLM_USE_FLASHINFER_MOE_FP4=0 — disable FlashInfer MoE FP4 (use triton).
-      // VLLM_TEST_FORCE_FP8_MARLIN=1 — force FP8 Marlin path.
-      'VLLM_NVFP4_GEMM_BACKEND=marlin VLLM_USE_FLASHINFER_MOE_FP4=0 VLLM_TEST_FORCE_FP8_MARLIN=1 VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
+      // Env vars exported before docker run — these tell vLLM which backends to use.
+      'VLLM_USE_RUST_FRONTEND=1 docker run -d --gpus all --ipc=host',
       '  --shm-size 64g',
       '  -p 127.0.0.1:8000:8000',
       '  -p 127.0.0.1:8001:8001',
-      // Speculative draft model — local path matching the downloaded checkpoint.
-      '  -v $HOME/models/RedHatAI/Qwen3.6-35B-A3B-speculator.dspark:/models/qwen36-dspark:ro',
+      // Model files — RedHatAI Qwen3.5 NVFP4 MoE 35B/3B speculator draft model.
+      '  -v $HOME/models/RedHatAI/Qwen3.5-35B-A3B-speculator.dspark:/models/qwen35-dspark:ro',
       // HuggingFace cache — so any cached weights survive container restarts.
       '  -v $HOME/.cache/huggingface:/root/.cache/huggingface',
       // VLLM cache for compiled kernels / flashinfer / cuBLASLt.
@@ -133,19 +131,18 @@ const PRESETS = [
       '  --name my-vllm',
       // vllm-dflash2:lmheadfix is the DGX Spark-optimized vLLM build.
       '  vllm-dflash2:lmheadfix',
-      '  RedHatAI/Qwen3.6-35B-A3B-NVFP4',
+      // RedHatAI Qwen3.5 NVFP4 MoE model.
+      '  RedHatAI/Qwen3.5-35B-A3B-NVFP4',
       // DSpeculative decoding — 8 speculative tokens using Triton MoE backend.
-      '    --spec-model /models/qwen36-dspark',
+      '    --spec-model /models/qwen35-dspark',
       "    --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":8,\"moe_backend\":\"triton\"}'",
       // Trust remote code — required for RedHatAI custom model files.
       '    --trust-remote-code',
       // Explicit backends for NVFP4 on GB10 (Blackwell) with Triton.
-      // These provide the MoE attention path for RedHatAI's NVFP4 MoE model.
       '    --attention-backend TRITON_ATTN',
       '    --moe-backend triton',
       '    --kv-cache-dtype fp8',
       // GB10-specific: --gpu-memory-utilization 0.85, --max-num-seqs 4.
-      // Note: 0.85 is needed for RedHatAI's NVFP4 model on GB10 (122 GiB).
       '    --gpu-memory-utilization 0.85',
       '    --max-model-len 131072',
       '    --max-num-seqs 4',
@@ -154,7 +151,7 @@ const PRESETS = [
       '    --async-scheduling',
       '    --enable-prefix-caching',
       '    --disable-log-stats=false',
-      // Tool-calling & reasoning (RedHatAI preset).
+      // Tool-calling & reasoning.
       '    --enable-auto-tool-choice',
       '    --tool-call-parser qwen3_coder',
       '    --reasoning-parser qwen3',
