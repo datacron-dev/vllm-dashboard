@@ -140,6 +140,7 @@ const PRESETS = [
       // Trust remote code — required for RedHatAI custom model files.
       '    --trust-remote-code',
       // Explicit backends for NVFP4 on GB10 (Blackwell) with Triton.
+      // These provide the MoE attention path for RedHatAI's NVFP4 MoE model.
       '    --attention-backend TRITON_ATTN',
       '    --moe-backend triton',
       '    --kv-cache-dtype fp8',

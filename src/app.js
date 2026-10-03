@@ -1018,7 +1018,11 @@ document.addEventListener('DOMContentLoaded', () => {
         snapshot.ok ? 'Live' : (snapshot.error || 'Down'));
     });
     window.vllm.onHealth((info) => health.health(info));
-    window.vllm.onLogLine((entry) => logs.push(entry));
+    window.vllm.onLogLine((entry) => {
+      // Filter out repetitive APIServer pid=1 INFO messages
+      if (entry && entry.text && entry.text.includes('APIServer pid=1')) return;
+      logs.push(entry)
+});
     window.vllm.onLogStatus((status) => {
       const panel = $('#panel-logs');
       if (!panel) return;
