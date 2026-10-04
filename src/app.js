@@ -159,7 +159,7 @@ const health = {
 
 // Live line chart renderer (canvas) — clean line + per-chart tooltip.
 // ---------------------------------------------------------------------------
-function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl) {
+function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, containerEl) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -197,79 +197,169 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl) {
   const validValues = values || [];
   const n = validValues.length;
 
-  if (n >= 2) {
-    // ── Draw the line ──────────────────────────────────────
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.8;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
+  // Pre-compute all point positions for hover lookup
+  const points = [];
+  for (let i = 0; i < n; i++) {
+    const v = validValues[i];
+    if (v == null || Number.isNaN(v)) { points.push(null); continue; }
+    const safe = Math.max(0, v);
+    points.push({ x: (i / (n - 1)) * w, y: plotB - (safe / yMax) * plotH, v: safe });
+  }
 
-    let started = false;
-    for (let i = 0; i < n; i++) {
-      const v = validValues[i];
-      if (v == null || Number.isNaN(v)) { started = false; continue; }
-      const safe = Math.max(0, v);
-      const x = (i / (n - 1)) * w;
-      const y = plotB - (safe / yMax) * plotH;
-      if (!started) {
-        ctx.moveTo(x, y);
-        started = true;
-      } else {
-        ctx.lineTo(x, y);
+  let crosshairIdx = -1;  // -1 means use default (right edge)
+
+  // ── Draw the chart (line + crosshair + dot + tooltip) ──────────────
+  function drawChart() {
+    ctx.clearRect(0, 0, w, h);
+
+    if (n >= 2) {
+      // ── Draw the line ──────────────────────────────────────
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      let started = false;
+      for (let i = 0; i < n; i++) {
+        if (!points[i]) { started = false; continue; }
+        const p = points[i];
+        if (!started) {
+          ctx.moveTo(p.x, p.y);
+          started = true;
+        } else {
+          ctx.lineTo(p.x, p.y);
+        }
       }
+      ctx.stroke();
     }
-    ctx.stroke();
 
-    // ── Dot on latest point ────────────────────────────────
-    const lastVal = validValues[n - 1];
-    if (lastVal != null && !Number.isNaN(lastVal)) {
-      const lx = w - 2;  // right edge
-      const ly = plotB - (Math.max(0, lastVal) / yMax) * plotH;
-
-      // Vertical crosshair from top to dot
+    // ── Crosshair at hover index ────────────────────────────
+    if (crosshairIdx >= 0 && crosshairIdx < n && points[crosshairIdx]) {
+      const cp = points[crosshairIdx];
       ctx.save();
       ctx.setLineDash([2, 2]);
       ctx.strokeStyle = color;
       ctx.lineWidth = 0.7;
       ctx.globalAlpha = 0.4;
       ctx.beginPath();
-      ctx.moveTo(lx, plotT);
-      ctx.lineTo(lx, ly);
+      ctx.moveTo(cp.x, plotT);
+      ctx.lineTo(cp.x, plotB);
       ctx.stroke();
       ctx.restore();
+    }
 
-      // Dot
-      ctx.beginPath();
-      ctx.arc(lx, ly, 3, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = '#0d1117';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    // ── Dot on latest point (always at right edge) ──────────
+    if (n >= 2) {
+      const lastVal = validValues[n - 1];
+      if (lastVal != null && !Number.isNaN(lastVal)) {
+        const lx = w - 2;  // right edge
+        const ly = plotB - (Math.max(0, lastVal) / yMax) * plotH;
 
-      // Update per-chart tooltip
-      if (tooltipEl) {
-        tooltipEl.classList.add('chart-tooltip--visible');
-        tooltipEl.innerHTML =
-          `<span class="chart-tooltip__value" style="color:${color}">${Math.round(lastVal)} tok/s</span>`;
+        // Vertical crosshair from top to dot
+        ctx.save();
+        ctx.setLineDash([2, 2]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.7;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(lx, plotT);
+        ctx.lineTo(lx, ly);
+        ctx.stroke();
+        ctx.restore();
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#0d1117';
+        ctx.lineWidth = 1;
+        ctx.stroke();
       }
     }
-  } else {
-    // No data: flat baseline at bottom
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(107,114,128,0.2)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    ctx.moveTo(0, plotB);
-    ctx.lineTo(w, plotB);
-    ctx.stroke();
-    ctx.setLineDash([]);
 
-    // Hide tooltip when no data
+    // ── Tooltip ─────────────────────────────────────────────
     if (tooltipEl) {
-      tooltipEl.classList.remove('chart-tooltip--visible');
+      const showVal = crosshairIdx >= 0 && crosshairIdx < n && points[crosshairIdx]
+        ? Math.round(points[crosshairIdx].v)
+        : (n >= 2 && validValues[n - 1] != null && !Number.isNaN(validValues[n - 1]) ? Math.round(validValues[n - 1]) : null);
+      if (showVal != null) {
+        tooltipEl.classList.add('chart-tooltip--visible');
+        tooltipEl.innerHTML =
+          `<span class="chart-tooltip__value" style="color:${color}">${showVal} tok/s</span>`;
+      } else {
+        tooltipEl.classList.remove('chart-tooltip--visible');
+      }
     }
+  }
+
+  // Initial draw
+  drawChart();
+
+  // ── Mouse-tracking overlay ────────────────────────────────
+  if (containerEl) {
+    containerEl.style.position = 'relative';
+    containerEl.style.cursor = 'crosshair';
+
+    // Remove old listeners if this function was called before (debounce-safe)
+    if (containerEl._chartPointerMove) {
+      containerEl.removeEventListener('pointermove', containerEl._chartPointerMove);
+      containerEl.removeEventListener('pointerleave', containerEl._chartPointerLeave);
+    }
+
+    const onPointerMove = (ev) => {
+      const cRect = canvas.getBoundingClientRect();
+      const mx = ev.clientX - cRect.left;  // mouse X inside canvas
+      // Find nearest point
+      let best = -1;
+      let bestDist = Infinity;
+      for (let i = 0; i < n; i++) {
+        if (!points[i]) continue;
+        const d = Math.abs(mx - points[i].x);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      if (best >= 0 && bestDist < 20) {
+        crosshairIdx = best;
+        // Move tooltip near cursor
+        tooltipEl.classList.add('chart-tooltip--visible');
+        // Position: above cursor, or above chart if near top
+        let top = ev.clientY - cRect.top - 42;
+        let left = ev.clientX - cRect.left - 30;
+        if (top < 2) top = 2;
+        if (left < 2) left = 2;
+        tooltipEl.style.top = top + 'px';
+        tooltipEl.style.left = left + 'px';
+        tooltipEl.style.bottom = 'auto';
+        tooltipEl.style.transform = 'none';
+        drawChart();
+      } else {
+        // Not on a data point — restore default tooltip at right edge
+        crosshairIdx = -1;
+        tooltipEl.style.top = '';
+        tooltipEl.style.left = '';
+        tooltipEl.style.bottom = '6px';
+        tooltipEl.style.transform = 'translateX(-50%)';
+        drawChart();
+      }
+    };
+
+    const onPointerLeave = () => {
+      crosshairIdx = -1;
+      tooltipEl.style.top = '';
+      tooltipEl.style.left = '';
+      tooltipEl.style.bottom = '6px';
+      tooltipEl.style.transform = 'translateX(-50%)';
+      drawChart();
+    };
+
+    containerEl.addEventListener('pointermove', onPointerMove);
+    containerEl.addEventListener('pointerleave', onPointerLeave);
+
+    // Clean up old listeners by removing and re-adding the handler.
+    // Store a ref so we can remove previous listeners if called again.
+    containerEl._chartPointerMove = onPointerMove;
+    containerEl._chartPointerLeave = onPointerLeave;
   }
 }
 
@@ -370,13 +460,15 @@ const throughput = {
       $('#spark-prompt-tok-s').querySelector('canvas'),
       pSpark ? pSpark.values : [],
       '#FBBF24', 0,
-      $('#tooltip-prompt-tok-s')
+      $('#tooltip-prompt-tok-s'),
+      $('#spark-prompt-tok-s')
     );
     renderLiveLineChart(
       $('#spark-gen-tok-s').querySelector('canvas'),
       gSpark ? gSpark.values : [],
       '#F97316', 0,
-      $('#tooltip-gen-tok-s')
+      $('#tooltip-gen-tok-s'),
+      $('#spark-gen-tok-s')
     );
 
     // SVG sparkline for TTFT only (no canvas)
