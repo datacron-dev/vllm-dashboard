@@ -25,37 +25,23 @@ A lightweight Electron desktop application for monitoring a local vLLM server in
 | Requirement | Version | Notes |
 |---|---|---|
 | **OS** | Linux (x86_64 or ARM64) | AppImage packaging targets Linux. Other platforms may work but are untested. |
-| **Node.js** | ≥ 18 | Build tooling — not required to run the AppImage |
-| **Docker** | Any (with GPU support optional) | Required for container start/stop/restart and log tailing |
-| **nvidia-smi** | Any | Required for the System Monitor panel (reads GPU metrics) |
+| **Node.js** | ≥ 18 | Build tooling — not required to run the AppImage. `sudo apt install -y nodejs npm` (Ubuntu/Debian) or `sudo dnf install -y nodejs npm` (Fedora/RHEL). |
+| **Docker** | Any (with GPU support optional) | Required for container start/stop/restart and log tailing. `sudo apt install -y docker.io` (Ubuntu/Debian) or `sudo dnf install -y docker` (Fedora/RHEL). |
+| **nvidia-smi** | Any | Required for the System Monitor panel (reads GPU metrics). Comes bundled with the NVIDIA driver. |
 
 To **run** the dashboard you only need the built `.AppImage` — no Node.js or build tooling required.
-
-## Quick Start — Run the AppImage
-
-If you already have a built AppImage (or downloaded one from Releases):
-
-```bash
-./vllm-dashboard.AppImage
-```
-
-Or after desktop installation (see below):
-
-```bash
-vllm-dashboard   # from your application menu or terminal
-```
 
 ## Build from Source
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/datacron-dev/vllm-dashboard.git
 cd vllm-dashboard
 
-npm install        # installs electron + electron-builder
+npm install        # installs electron (~300MB) + electron-builder
 npm run build      # produces dist/vllm-dashboard-0.1.0-<arch>.AppImage
 ```
 
-The AppImage bundles everything: Electron runtime, the app, and the icon. It is fully self-contained and can be copied to any Linux machine.
+The AppImage bundles everything — Electron runtime, your app, and the icon — into a single self-contained binary that runs on any Linux x86_64 or ARM64 machine.
 
 ## Install as a Desktop Application
 
@@ -81,6 +67,20 @@ The installed launcher automatically passes:
 |---|---|
 | `--no-sandbox` | Electron's SUID chrome-sandbox is not root-owned inside an AppImage. Safe here since the renderer is already isolated via `contextIsolation` + `sandbox: true`. |
 | `--disable-gpu` | Prevents GPU process crashes on headless/SSH sessions. Set `VLLM_DASHBOARD_GPU=1` to re-enable. |
+
+## Quick Start — Run the AppImage
+
+If you already have a built AppImage (or downloaded one from a Release):
+
+```bash
+./vllm-dashboard.AppImage
+```
+
+Or after desktop installation (see above):
+
+```bash
+vllm-dashboard   # from your application menu or terminal
+```
 
 ## Configuration
 
