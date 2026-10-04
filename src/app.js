@@ -207,16 +207,20 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
     }
   }
 
-  // The scale floor is the larger of: the recent window max and the live value.
-  // This ensures the current value is always prominent.
-  // The absolute ceiling is dataMax so old spikes don't clip.
+  // The scale is anchored on the recent window (last 30 values) so that current
+  // activity drives the chart.  We also take dataMax as a floor so that historic
+  // peaks outside the window never render off-canvas (y < plotT).
   let yMax;
   if (maxVal != null && maxVal > 0) {
     yMax = Math.max(recentMax, maxVal);
   } else {
     yMax = recentMax;
   }
-  yMax = Math.max(1, Math.ceil(yMax * 1.1));  // 10% headroom on top
+  // Ensure the y-axis always accommodates every value in the data set.
+  if (yMax < dataMax) {
+    yMax = dataMax;
+  }
+  yMax = Math.max(1, Math.ceil(yMax * 1.1));  // 10 % headroom on top
   // Snap to a nice scale
   const mag = Math.pow(10, Math.floor(Math.log10(yMax)));
   yMax = Math.ceil(yMax / mag) * mag;
@@ -263,8 +267,11 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
         ex = cp.x;
         ey = cp.y;
       } else {
-        // Clamp to the point itself
-        cp1x = cp1y = cp2x = cp2y = ex = ey = cp.x;
+        // Clamp to the point itself (first / last valid point).
+        // Use cp.y for all y-coordinates so the bezier stays on-canvas.
+        cp1x = cp.x;  cp1y = cp.y;
+        cp2x = cp.x;  cp2y = cp.y;
+        ex = cp.x;    ey = cp.y;
       }
       ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ex, ey);
     }

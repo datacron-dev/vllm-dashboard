@@ -90,6 +90,7 @@ class MetricsPoller extends EventEmitter {
     this.last = null; // last parsed metrics
     this.lastAt = 0;  // epoch ms when last metrics were fetched
     this.lastSuccessTotal = null; // cumulative request success counter for delta
+    this.lastTtftCount = null;   // cumulative _count for time_to_first_token_seconds
   }
 
   // Strip trailing slash and any trailing `/v1` (with or without trailing
@@ -332,7 +333,21 @@ class MetricsPoller extends EventEmitter {
 
     // TTFT — parse vllm:time_to_first_token_seconds histogram
     // Return the median (p50) from the bucket samples in ms.
-    const ttftMs = this._parseLatencyHistogramsForMetric(metrics, 'vllm:time_to_first_token_seconds');
+    // Prometheus histograms are cumulative, so the median can persist
+    // indefinitely from a single old request.  Only surface a value when
+    // the _count has increased since the last poll (new requests completed).
+    // On first poll we show the value; on subsequent polls we show -- unless
+    // the count has advanced, proving fresh data exists.
+    const ttftCount = getFirstValue(metrics, 'vllm:time_to_first_token_seconds_count');
+    let ttftMs = null;
+    if (ttftCount != null) {
+      const prevCount = this.lastTtftCount;
+      this.lastTtftCount = ttftCount;
+      // Show value on first poll (prevCount is null) OR when count has advanced.
+      if (prevCount === null || ttftCount > prevCount) {
+        ttftMs = this._parseLatencyHistogramsForMetric(metrics, 'vllm:time_to_first_token_seconds');
+      }
+    }
 
     // E2E — parse vllm:e2e_request_latency_seconds histogram (p50 median in ms).
     // This is needed as the base for the ITL calculation.
