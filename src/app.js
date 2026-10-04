@@ -207,58 +207,40 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
   }
 
   // ─── Cardinal spline helper: draws a smooth curve through points ───
-  // Uses a tension-based Catmull-Rom variant for smooth interpolation.
-  function drawSmoothLine(pts, startFrom) {
-    // Gather only valid consecutive segments
+  function drawSmoothLine(pts) {
     ctx.beginPath();
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
 
-    const valid = pts.filter(Boolean);
+    const valid = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (pts[i]) valid.push({ ...pts[i], i });  // keep original index
+    }
     if (valid.length < 2) return;
 
-    // Start at the first valid point
-    let started = false;
-    for (let i = 0; i < valid.length; i++) {
-      const p = valid[i];
-      const srcIdx = pts.indexOf(p);
-      if (!started) {
-        ctx.moveTo(p.x, p.y);
-        started = true;
-        continue;
-      }
-      // Find the previous and next valid points for the spline
-      const pi = pts.indexOf(p);
-      let prev = null, next = null;
-      for (let j = pi - 1; j >= 0; j--) { if (pts[j]) { prev = pts[j]; break; } }
-      for (let j = pi + 1; j < pts.length; j++) { if (pts[j]) { next = pts[j]; break; } }
+    const tension = 0.3;
+    ctx.moveTo(valid[0].x, valid[0].y);
 
-      const tension = 0.3;
+    for (let vi = 0; vi < valid.length; vi++) {
+      if (vi === 0) continue;  // first point already moved to
+      const cp = valid[vi];
+      const prev = valid[vi - 1];
+      const next = vi < valid.length - 1 ? valid[vi + 1] : null;
+
       let cp1x, cp1y, cp2x, cp2y, ex, ey;
       if (prev && next) {
-        cp1x = p.x + (next.x - prev.x) * tension;
-        cp1y = p.y + (next.y - prev.y) * tension;
-        cp2x = next.x - (next.x - p.x) * tension;
-        cp2y = next.y - (next.y - p.y) * tension;
-        ex = next.x;
-        ey = next.y;
+        // Full interior point: Catmull-Rom through prev → cp → next
+        cp1x = prev.x + (cp.x - prev.x) * tension * 0.5;
+        cp1y = prev.y + (cp.y - prev.y) * tension * 0.5;
+        cp2x = cp.x + (next.x - cp.x) * tension * 0.5;
+        cp2y = cp.y + (next.y - cp.y) * tension * 0.5;
+        ex = cp.x;
+        ey = cp.y;
       } else {
-        // First or last point: straight to the neighbor
-        if (prev) {
-          cp1x = p.x;
-          cp1y = p.y;
-          cp2x = next ? next.x - (p.x - prev.x) * tension : next.x;
-          cp2y = next ? next.y - (p.y - prev.y) * tension : next.y;
-        } else {
-          cp1x = prev ? prev.x + (next.x - prev.x) * tension : next.x;
-          cp1y = prev ? prev.y + (next.y - prev.y) * tension : next.y;
-          cp2x = next.x;
-          cp2y = next.y;
-        }
-        ex = next.x;
-        ey = next.y;
+        // Clamp to the point itself
+        cp1x = cp1y = cp2x = cp2y = ex = ey = cp.x;
       }
       ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ex, ey);
     }
@@ -273,7 +255,7 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
 
     if (n >= 2) {
       // ── Draw a smooth curve through all points ─────────────
-      drawSmoothLine(points, 0);
+      drawSmoothLine(points);
     }
 
     // ── Crosshair at hover index ────────────────────────────
