@@ -1,87 +1,92 @@
 # vLLM Dashboard
 
-Lightweight Electron app for monitoring a local vLLM server on DGX Spark.
+A lightweight Electron desktop application for monitoring a local vLLM server in real-time.
 
-Shows: server health, KV cache usage, throughput (tok/s), prefix cache hit rate, and live server logs.
+## Features
 
-## Quick Start
+- **Server Health** — Connection status, KV cache usage, running/waiting request counts
+- **Throughput** — Live prompt and generation tokens/second (computed from Prometheus metrics)
+- **Prefix Cache** — Cache hit rate percentage
+- **Server Logs** — Live tail of `docker logs` (or file), color-coded with auto-scroll
+- **System Monitor** — Live GPU telemetry (nvidia-smi + `/proc`) with GPU name, utilization, clock, temperature, power, VRAM, OS, CPU, RAM, kernel
+- **Server Control** — Start / Stop / Restart the vLLM container from the dashboard
+- **Monitor Mode** — Detects external servers (Ollama, other vLLM instances) and locks controls appropriately
+- **Model Presets** — Pre-configured launch commands for common model configurations
 
-```bash
-npm install
-npm start
-```
+## Screenshots
 
-## Configuration
+<!-- Add screenshots here for best results -->
+<!-- Place images in a `docs/screenshots/` directory and link below -->
 
-Edit `electron/main.js` → `SETTINGS` object, or use the settings panel (coming soon):
+![Dashboard](docs/screenshots/dashboard.png)
 
-```js
-const SETTINGS = {
-  vllmEndpoint: 'http://127.0.0.1:8000',
-  pollIntervalMs: 2000,
-  logSource: 'docker',          // 'docker' | 'file'
-  dockerContainer: 'my-vllm',
-  logFile: '/var/log/vllm.log', // used when logSource === 'file'
-};
-```
+## Requirements
 
-## Tuned vLLM Server Flags
+| Requirement | Version | Notes |
+|---|---|---|
+| **OS** | Linux (x86_64 or ARM64) | AppImage packaging targets Linux. Other platforms may work but are untested. |
+| **Node.js** | ≥ 18 | Build tooling — not required to run the AppImage |
+| **Docker** | Any (with GPU support optional) | Required for container start/stop/restart and log tailing |
+| **nvidia-smi** | Any | Required for the System Monitor panel (reads GPU metrics) |
 
-See [PLAN.md](./PLAN.md) for the full docker run command with tuned flags
-(`--gpu-memory-utilization 0.80`, `--max-num-seqs 6`, `--kv-cache-dtype fp8`,
-`--enable-prefix-caching`, `--enable-chunked-prefill`, dflash speculative decoding).
+To **run** the dashboard you only need the built `.AppImage` — no Node.js or build tooling required.
 
-> **Memory headroom on DGX Spark (122 GB unified):** vLLM's total footprint is the
-> sum of model weights + KV-cache reservation + CUDA/flashinfer/NCCL buffers + the
-> dflash draft model. At `--gpu-memory-utilization 0.85` the process lands at
-> ~117 GB / 122 GB — too tight. `0.80` trims the KV reservation by ~6 GiB, landing
-> at ~110–111 GB total and leaving ~12 GiB headroom for the OS and other processes.
-> The KV cache still holds ~7 M tokens (~11% fewer blocks than 0.85), which is
-> plenty for `--max-model-len 262144` with `--max-num-seqs 6`.
+## Quick Start — Run the AppImage
 
-## Build
+If you already have a built AppImage (or downloaded one from Releases):
 
 ```bash
-npm run build    # produces .AppImage in ./dist
+./vllm-dashboard.AppImage
 ```
 
-## Project Layout
+Or after desktop installation (see below):
 
-```
-vllm-dashboard/
-├── package.json
-├── electron/
-│   ├── main.js              # Electron main process: window, IPC, settings, lifecycle
-│   ├── preload.js           # Context bridge for renderer
-│   ├── metrics.js           # Poll /metrics, parse Prometheus, compute deltas
-│   ├── logs.js              # Tail docker logs or a log file, emit lines via IPC
-│   └── server-control.js    # Start / stop / restart the vLLM container
-├── src/
-│   ├── index.html           # Single-page layout (top bar + 6-panel grid)
-│   ├── styles.css           # Dark theme (default) + light theme, panel grid
-│   └── app.js               # Renderer: render panels, handle IPC events
-└── assets/
-    └── icon.png             # App icon
+```bash
+vllm-dashboard   # from your application menu or terminal
 ```
 
-## Panels
+## Build from Source
 
-| Panel | Purpose |
+```bash
+git clone <repo-url>
+cd vllm-dashboard
+
+npm install        # installs electron + electron-builder
+npm run build      # produces dist/vllm-dashboard-0.1.0-<arch>.AppImage
+```
+
+The AppImage bundles everything: Electron runtime, the app, and the icon. It is fully self-contained and can be copied to any Linux machine.
+
+## Install as a Desktop Application
+
+```bash
+./install-desktop.sh
+```
+
+This script:
+
+1. Copies the AppImage to `~/.local/bin/vllm-dashboard.AppImage` (stable path, on PATH)
+2. Installs the app icon to `~/.local/share/icons/`
+3. Writes a `.desktop` launcher to `~/.local/share/applications/`
+4. Creates a wrapper script at `~/.local/bin/vllm-dashboard`
+5. Refreshes the desktop database
+
+After this, the app appears in your application menu and can be launched with `vllm-dashboard` from the terminal.
+
+### Platform Notes
+
+The installed launcher automatically passes:
+
+| Flag | Why |
 |---|---|
-| **Server Control** | Start / Stop / Restart the vLLM container via Docker. Status badge + last-action log. |
-| **Server Health** | KV cache usage bar, running/waiting request counts, last `/metrics` fetch time. |
-| **Throughput** | Prompt + generation tok/s (delta over poll interval). |
-| **Prefix Cache** | Hit rate (%) from `vllm:prefix_cache_hits/misses`. |
-| **Server Logs** | Live tail of `docker logs -f` (or file). Color-coded, auto-scroll, collapsible. |
-| **vLLM Config** | Editable launch command (docker run + vllm serve flags), endpoint, and model preset. Save to `config.json`. |
-| **System Monitor** | Live GPU + system telemetry: GPU name/util/clock/temp/power/VRAM, OS/arch/CPU/RAM/kernel. Polls `nvidia-smi` + `/proc` every 3 s. On GB10 (unified memory), VRAM falls back to system RAM. |
+| `--no-sandbox` | Electron's SUID chrome-sandbox is not root-owned inside an AppImage. Safe here since the renderer is already isolated via `contextIsolation` + `sandbox: true`. |
+| `--disable-gpu` | Prevents GPU process crashes on headless/SSH sessions. Set `VLLM_DASHBOARD_GPU=1` to re-enable. |
 
 ## Configuration
 
-Settings are persisted to `~/Library/Application Support/vllm-dashboard/vllm-dashboard-config.json`
-(macOS) or `~/.config/vllm-dashboard/vllm-dashboard-config.json` (Linux).
+### Endpoints & Settings
 
-You can edit them live in the **vLLM Config** panel, or pre-populate by creating the file:
+Settings are persisted to `~/.config/vllm-dashboard/vllm-dashboard-config.json` on Linux. Edit them in the **vLLM Config** panel inside the app, or create the file manually:
 
 ```json
 {
@@ -94,132 +99,107 @@ You can edit them live in the **vLLM Config** panel, or pre-populate by creating
 }
 ```
 
-The default `vllmCommand` mirrors the tuned vLLM server in [PLAN.md](./PLAN.md).
-
-## Build & Package
-
-```bash
-npm install          # install electron + electron-builder
-npm run build        # produces dist/vllm-dashboard-0.1.0-arm64.AppImage
-npm run build:dir    # (optional) produces dist/linux-arm64-unpacked/ (no AppImage wrapper)
-```
-
-The AppImage is self-contained: it bundles Electron, the app, and the icon.
-Run it with:
-
-```bash
-./dist/vllm-dashboard-0.1.0-arm64.AppImage
-```
-
-## Install as a Desktop Application
-
-After building, run the installer:
-
-```bash
-./install-desktop.sh
-```
-
-This:
-1. Copies the AppImage to `~/.local/bin/vllm-dashboard.AppImage` (stable, on PATH)
-2. Copies the vLLM-Playground SVG icon to `~/.local/share/icons/vllm-dashboard.svg`
-3. Writes a `.desktop` launcher to `~/.local/share/applications/vllm-dashboard.desktop`
-4. Installs a wrapper script at `~/.local/bin/vllm-dashboard`
-5. Refreshes the desktop database so the app appears in the application menu
-
-The launcher uses the vLLM-Playground "V" mark (the two-triangle amber/blue icon)
-as its icon, matching the reference app.
-
-### Launch flags (baked into the launcher)
-
-The `.desktop` entry and the wrapper script both pass two flags automatically:
-
-| Flag | Why |
+| Setting | Description |
 |---|---|
-| `--no-sandbox` | Electron's SUID `chrome-sandbox` helper is not root-owned inside an AppImage. Disabling the OS-level sandbox is safe here: the renderer is already isolated via `contextIsolation` + `sandbox:true` (V8/Node isolation), and the app only talks to a local vLLM endpoint + Docker. |
-| `--disable-gpu` | The GPU process crashes on headless/SSH sessions (no usable GPU). Software rendering is sufficient for a DOM-based dashboard. |
+| `vllmEndpoint` | The vLLM server's base URL (e.g. `http://127.0.0.1:8000`) |
+| `logSource` | `"docker"` to tail `docker logs`, or `"file"` to read a log file |
+| `dockerContainer` | Container name for start/stop/restart and log tailing |
+| `logFile` | Path to a log file when `logSource` is `"file"` |
+| `pollIntervalMs` | How often to poll the server (default 2000 ms) |
 
-If you ever want to force GPU on (e.g. on a machine with a working display),
-set `VLLM_DASHBOARD_GPU=1` in your environment — `main.js` will skip the
-auto-disable in that case.
+### Presets
 
-## Icon
+The dashboard ships with model presets that auto-fill the `vllmCommand` with appropriate flags. Select one from the **vLLM Config** panel dropdown to switch between configurations.
 
-The app icon is the vLLM-Playground "V" mark (two triangles: amber `#FDB515` + blue `#30A2FF`),
-rendered from the SVG at `/home/ai-dev/.local/share/icons/vllm-Playground.svg` to a 512×512 PNG
-via `assets/render-icon.js` (no external dependencies — pure Node rasterizer).
+## Architecture
 
-## Tuned vLLM Server Flags
+```
+vLLM Server ────────────────────────────────────────┐
+    /metrics (Prometheus)                           │
+    /v1/models (OpenAI-compatible)                  │
+    /api/tags (Ollama)                              │
+                                                    │
+                                                    ▼
+              ┌───────────────────────────┐
+              │  vLLM Dashboard (Electron)  │
+              │                           │
+              │  electron/                 │  ← Main process
+              │    main.js                 │    IPC, window, lifecycle
+              │    metrics.js              │    Poll /metrics, parse
+              │    logs.js                 │    Tail logs via spawn
+              │    server-control.js       │    Docker exec + start/stop
+              │    provenance.js           │    Detect Ours vs External
+              │    system-monitor.js       │    nvidia-smi + /proc polling
+              │                           │
+              │  src/                      │  ← Renderer
+              │    index.html              │    UI layout
+              │    styles.css              │    Dark/light theme
+              │    app.js                  │    Panel rendering
+              └───────────────────────────┘
+```
 
-See [PLAN.md](./PLAN.md) for the full docker run command with tuned flags
-(`--gpu-memory-utilization 0.80`, `--max-num-seqs 6`, `--kv-cache-dtype fp8`,
-`--enable-prefix-caching`, `--enable-chunked-prefill`, dflash speculative decoding).
+**Data flow:** The main process polls `/metrics` every 2 seconds, parses Prometheus text format, computes deltas (tokens/sec, hit rate), and pushes updates to the renderer via IPC. Logs are streamed via `docker logs -f` (or a file) with a 50-line/sec throttle.
 
-## Tuned vLLM Server Flags
+## Panels
 
-See [PLAN.md](./PLAN.md) for the full docker run command with tuned flags
-(`--gpu-memory-utilization 0.80`, `--max-num-seqs 6`, `--kv-cache-dtype fp8`,
-`--enable-prefix-caching`, `--enable-chunked-prefill`, dflash speculative decoding).
+| Panel | What It Shows |
+|---|---|
+| **Server Control** | Start / Stop / Restart the vLLM container. Status badge and last-action log. |
+| **Server Health** | KV cache usage bar, running/waiting request counts, last fetch time. |
+| **Throughput** | Prompt tok/s and generation tok/s (delta over poll interval). |
+| **Prefix Cache** | Cache hit rate (%) from prefix cache metrics. |
+| **Server Logs** | Live tail of `docker logs` (or file). Color-coded (INFO/WARN/ERROR), auto-scroll, collapsible. |
+| **vLLM Config** | Endpoint, launch command, model preset, poll interval. Save to disk. |
+| **System Monitor** | GPU name, utilization, clock, temperature, power, VRAM. System: OS, arch, CPU, cores, RAM, kernel. |
 
-> **Note:** The `vllm-dflash2:lmheadfix` image already sets `ENTRYPOINT ["vllm", "serve"]`.
-> The saved launch command therefore passes *only* the model path and flags as arguments —
-> it does **not** repeat `vllm serve`. Repeating the subcommand makes `vllm`'s CLI parser
-> reject the container with `error: unrecognized arguments: serve …`.
->
-> Likewise, the `--generation-config` flag is omitted: it points at a *file* inside the
-> model snapshot, but `vllm`'s `get_config()` treats that argument as a *directory* and
-> fails with `ValueError: Invalid repository ID or local directory`. vLLM auto-discovers
-> `generation_config.json` from the model directory.
+## Troubleshooting
 
-## Status
+### Panels showing `--` while the server is healthy
 
-- ✅ Milestone 1 — Scaffold (Electron window, dark theme, panel grid)
-- ✅ Milestone 2 — Metrics polling (KV cache, request counts, endpoint health)
-- ✅ Milestone 3 — Throughput (prompt/generation tok/s from deltas)
-- ✅ Milestone 4 — Prefix cache hit rate
-- ✅ Milestone 5 — Log tailing (docker or file, color-coded, auto-scroll, collapsible)
-- ✅ Server control — Start / Stop / Restart the vLLM container from the dashboard
-- ✅ vLLM Config — Editable launch command + endpoint, persisted to `config.json`
-- ✅ Milestone 7 — electron-builder .AppImage packaging + desktop launcher
-- ✅ Milestone 8 — Model preset dropdown (27B dflash2 + Qwen3.6-35B-A3B-FP8)
-- ✅ System Monitor — Live GPU + system telemetry (nvidia-smi + /proc polling)
-- ✅ Milestone 12 — Monitor Mode / server provenance. Provenance badge in the
-  top bar (Ours / External / No server), Start/Stop/Restart locked while an
-  external server owns the endpoint, Detect button scans common ports,
-  vLLM-only panels show `n/a` when the active server is not vLLM.
-- ⏳ Milestone 6 — Full settings panel (poll interval, log source toggles in UI)
-- ⏳ Milestone 9 — Per-session token counter
-- ⏳ Milestone 10 — Session list with per-session context/token counts
+1. Verify the endpoint in **vLLM Config** is correct: `http://127.0.0.1:8000` (the `/v1` suffix is stripped automatically).
+2. Confirm metrics are accessible: `curl http://127.0.0.1:8000/metrics` should return HTTP 200.
+3. Check that your vLLM version exposes the expected Prometheus metrics. Run:
+   ```bash
+   curl http://127.0.0.1:8000/metrics | grep -E '^(vllm|process):'
+   ```
+   If `vllm:gpu_cache_usage` is missing, the dashboard will also fall back to the legacy metric name.
 
-## Known vLLM metric names (for debugging)
+### Start/Stop/Restart buttons are disabled (locked)
 
-The dashboard reads these Prometheus metrics from `GET /metrics` (NOT `/v1/metrics`):
+The dashboard detects whether the endpoint is controlled by **your** container or an **external** server. If an external server is found (e.g. another vLLM instance or Ollama on the same port), buttons are locked to prevent conflicts. This is expected behavior.
 
-| Panel | Metric | Notes |
-|---|---|---|
-| KV cache | `vllm:kv_cache_usage_perc` | fraction 0..1; legacy `vllm:gpu_cache_usage` also accepted |
-| Requests | `vllm:num_requests_running` / `vllm:num_requests_waiting` | |
-| Throughput | `vllm:prompt_tokens_total` / `vllm:generation_tokens_total` | tok/s computed as delta over poll interval |
-| Prefix cache | `vllm:prefix_cache_hits_total` / `vllm:prefix_cache_queries_total` | hit rate = hits / queries × 100 |
+To resolve: stop the external server on the endpoint port, or change the endpoint in **vLLM Config** to your desired server.
 
-If a panel shows `--` while the server is healthy, check that:
-1. The endpoint in the **vLLM Config** panel is `http://127.0.0.1:8000` (the
-   `/v1` suffix is optional — the poller strips it automatically).
-2. `curl http://127.0.0.1:8000/metrics` returns 200 (not 404).
-3. The metric names above match what your vLLM build exposes (`grep -E '^(vllm|process):'` on the output).
+### System Monitor shows no GPU data
 
-## Generation throughput on DGX Spark (27B FP8 + dflash)
+Ensure `nvidia-smi` is on your PATH and accessible. The System Monitor polls nvidia-smi output every 3 seconds. Run `nvidia-smi` manually to verify it works.
 
-A single-stream decode on a 27B FP8 model with dflash speculative decoding
-lands at **~20–30 tok/s** on DGX Spark (128 GB unified memory, ~1.5 TB/s
-bandwidth). This is expected, not a bug. The vLLM log line
-`Mean acceptance length: 3.4, Avg Draft acceptance rate: 35%` confirms the
-draft model is only accepting ~1 in 3 drafted tokens — the rest of the work
-is wasted. If you want to push higher:
+### AppImage won't launch
 
-- **Increase `--max-num-seqs`** (currently 6) — batching multiple requests
-  recovers throughput even at the cost of per-request latency.
-- **Trim `num_speculative_tokens`** in `--speculative-config` (currently 7)
-  — the per-position acceptance rate falls off steeply (0.80 → 0.58 → 0.39 →
-  0.23 → 0.20 → 0.16 → 0.10). Dropping to 4 saves the low-value draft slots.
-- **Raise `--gpu-memory-utilization`** if you have headroom — a larger KV
-  cache means more batches can be in flight at once.
+Ensure you have the required dependencies installed. On most distros:
+```bash
+# Ubuntu/Debian
+sudo apt install libfuse2  # or libfuse2t64 on newer systems
+
+# Fedora/RHEL
+sudo dnf install fuse-libs
+```
+
+## Development
+
+```bash
+# Run in development mode (auto-reload on file changes)
+npm run dev
+
+# Build for testing
+npm run build
+
+# Build unpacked directory (no AppImage wrapper)
+npm run build:dir
+```
+
+Files watched for changes: `electron/**/*`, `src/**/*`, and `package.json`.
+
+## License
+
+MIT

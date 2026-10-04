@@ -2,17 +2,18 @@
 # Install vLLM Dashboard as a desktop application.
 #
 # This script:
-#   1. Copies the built .AppImage to ~/.local/bin/vllm-dashboard (a stable path)
+#   1. Copies the built .AppImage to ~/.local/bin/vllm-dashboard.AppImage
 #   2. Copies the vLLM-Playground SVG icon to ~/.local/share/icons/vllm-dashboard.svg
 #   3. Writes a .desktop launcher to ~/.local/share/applications/vllm-dashboard.desktop
-#   4. Refreshes the desktop database (if available)
+#   4. Creates a wrapper script at ~/.local/bin/vllm-dashboard for terminal access
+#   5. Refreshes the desktop database (if available)
 #
-# Run AFTER `npm run build` has produced dist/vllm-dashboard-0.1.0-arm64.AppImage.
+# Run AFTER `npm run build` has produced dist/vllm-dashboard-0.1.0-<arch>.AppImage.
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DIST="$PROJECT_DIR/dist"
-APPIMAGE="$DIST/vllm-dashboard-0.1.0-arm64.AppImage"
+APPIMAGE="$DIST/vllm-dashboard-0.1.0-*.AppImage"
 SOURCE_ICON="/home/ai-dev/.local/share/icons/vllm-Playground.svg"
 
 DEST_BIN="$HOME/.local/bin"
@@ -21,16 +22,19 @@ DEST_APP_DIR="$HOME/.local/share/applications"
 DEST_ICON="$DEST_ICON_DIR/vllm-dashboard.svg"
 DEST_DESKTOP="$DEST_APP_DIR/vllm-dashboard.desktop"
 STABLE_APPIMAGE="$DEST_BIN/vllm-dashboard.AppImage"
+WRAPPER="$DEST_BIN/vllm-dashboard"
 
 echo "==> Installing vLLM Dashboard"
 
-# 1. AppImage -> ~/.local/bin (stable path, on PATH)
-mkdir -p "$DEST_BIN"
-if [[ ! -f "$APPIMAGE" ]]; then
-  echo "ERROR: $APPIMAGE not found. Run 'npm run build' first." >&2
+# 1. Find and copy the AppImage
+shopt -s nullglob
+APPFILES=("$DIST"/vllm-dashboard-*.AppImage)
+shopt -u nullglob
+if [[ ${#APPFILES[@]} -eq 0 ]]; then
+  echo "ERROR: No AppImage found in $DIST/. Run 'npm run build' first." >&2
   exit 1
 fi
-cp -f "$APPIMAGE" "$STABLE_APPIMAGE"
+cp -f "${APPFILES[0]}" "$STABLE_APPIMAGE"
 chmod +x "$STABLE_APPIMAGE"
 echo "    AppImage -> $STABLE_APPIMAGE"
 
@@ -53,7 +57,7 @@ fi
 cat > "$DEST_DESKTOP" <<EOF
 [Desktop Entry]
 Name=vLLM Dashboard
-Comment=Monitor a local vLLM server (PPLX 27B on DGX Spark). Shows health, KV cache, throughput, prefix cache hit rate, and live logs.
+Comment=Monitor a local vLLM server. Shows health, KV cache, throughput, prefix cache hit rate, and live logs.
 Exec=$STABLE_APPIMAGE --no-sandbox --disable-gpu
 Icon=$DEST_ICON
 Terminal=false
@@ -64,7 +68,20 @@ EOF
 chmod +x "$DEST_DESKTOP"
 echo "    Launcher -> $DEST_DESKTOP"
 
-# 4. Refresh desktop database (best-effort)
+# 4. Wrapper script for terminal access
+# Allows launching via the 'vllm-dashboard' command without typing the .AppImage suffix.
+cat > "$WRAPPER" <<'WRAPPER_EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$(dirname "$0")/vllm-dashboard.AppImage" \
+  --no-sandbox \
+  --disable-gpu \
+  "$@"
+WRAPPER_EOF
+chmod +x "$WRAPPER"
+echo "    Wrapper -> $WRAPPER"
+
+# 5. Refresh desktop database (best-effort)
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "$DEST_APP_DIR" 2>/dev/null || true
   echo "    Desktop DB refreshed."
@@ -75,5 +92,5 @@ fi
 echo
 echo "==> Done. Launch via:"
 echo "      • App menu: 'vLLM Dashboard'"
-echo "      • Terminal: $STABLE_APPIMAGE"
-echo "      • Or:       $DEST_BIN/vllm-dashboard"
+echo "      • Terminal: vllm-dashboard"
+echo "      • Or:       $STABLE_APPIMAGE"
