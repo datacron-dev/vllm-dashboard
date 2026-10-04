@@ -177,7 +177,22 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl) {
   const plotT = 4;
   const plotH = plotB - plotT;
 
-  const yMax = maxVal != null && maxVal > 0 ? maxVal : 1000;
+  // Determine the effective Y max:
+  // 1. Use the caller-provided maxVal if it's positive.
+  // 2. Otherwise compute from data, rounded up to a nice number, with ~10% headroom.
+  let yMax;
+  if (maxVal != null && maxVal > 0) {
+    yMax = maxVal;
+  } else {
+    const dataMax = values.reduce((m, v) => {
+      if (v == null || Number.isNaN(v)) return m;
+      return Math.max(m, Math.max(0, v));
+    }, 0);
+    yMax = Math.max(1, Math.ceil(dataMax * 1.1));
+    // Snap to a nice scale
+    const mag = Math.pow(10, Math.floor(Math.log10(yMax)));
+    yMax = Math.ceil(yMax / mag) * mag;
+  }
 
   const validValues = values || [];
   const n = validValues.length;
@@ -350,17 +365,17 @@ const throughput = {
     if (tSpark) tSpark.push(ttftMs);
     if (iSpark) iSpark.push(itlMs);
 
-    // Live line charts for Prompt and Generation
+    // Live line charts for Prompt and Generation (auto-scaled)
     renderLiveLineChart(
       $('#spark-prompt-tok-s').querySelector('canvas'),
       pSpark ? pSpark.values : [],
-      '#FBBF24', 500,
+      '#FBBF24', 0,
       $('#tooltip-prompt-tok-s')
     );
     renderLiveLineChart(
       $('#spark-gen-tok-s').querySelector('canvas'),
       gSpark ? gSpark.values : [],
-      '#F97316', 500,
+      '#F97316', 0,
       $('#tooltip-gen-tok-s')
     );
 
