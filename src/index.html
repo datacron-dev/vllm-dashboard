@@ -94,10 +94,13 @@
             <span class="tstat__header-label"><span class="tstat__dot tstat__dot--orange"></span> Prompt Processing</span>
             <span class="tstat__header-range" id="card-range-prompt-tok-s"></span>
           </div>
-          <div class="tstat__live-value" id="prompt-tok-s"><span class="tstat__live-num">--</span><span class="tstat__live-unit">tok/s</span></div>
+          <div class="tstat__live-row" id="prompt-tok-s">
+            <span class="tstat__live-num">--</span>
+            <span class="tstat__live-unit">tok/s</span>
+            <div class="chart-tooltip" id="tooltip-prompt-tok-s"></div>
+          </div>
           <div class="sparkline-wrap sparkline-wrap--chart" id="spark-prompt-tok-s">
             <canvas class="live-chart" height="52"></canvas>
-            <div class="chart-tooltip" id="tooltip-prompt-tok-s"></div>
           </div>
         </div>
         <div class="tstat tstat--wide">
@@ -105,16 +108,23 @@
             <span class="tstat__header-label"><span class="tstat__dot tstat__dot--green"></span> Token Generation</span>
             <span class="tstat__header-range" id="card-range-gen-tok-s"></span>
           </div>
-          <div class="tstat__live-value" id="gen-tok-s"><span class="tstat__live-num">--</span><span class="tstat__live-unit">tok/s</span></div>
+          <div class="tstat__live-row" id="gen-tok-s">
+            <span class="tstat__live-num">--</span>
+            <span class="tstat__live-unit">tok/s</span>
+            <div class="chart-tooltip" id="tooltip-gen-tok-s"></div>
+          </div>
           <div class="sparkline-wrap sparkline-wrap--chart" id="spark-gen-tok-s">
             <canvas class="live-chart" height="52"></canvas>
-            <div class="chart-tooltip" id="tooltip-gen-tok-s"></div>
           </div>
         </div>
         <div class="tstat">
-          <div class="tstat__label">TTFT</div>
-          <div class="tstat__value">
-            <span id="ttft">--</span><span class="tstat__unit">ms</span>
+          <div class="tstat__header">
+            <span class="tstat__header-label"><span class="tstat__dot tstat__dot--green"></span> TTFT</span>
+            <span class="tstat__header-range" id="range-ttft"></span>
+          </div>
+          <div class="tstat__live-row" id="ttft">
+            <span class="tstat__live-num">--</span>
+            <span class="tstat__live-unit">ms</span>
           </div>
           <div class="sparkline-wrap" id="spark-ttft">
             <svg viewBox="0 0 120 24" preserveAspectRatio="none">
@@ -124,13 +134,16 @@
           </div>
         </div>
         <div class="tstat">
-          <div class="tstat__label">Inter-Token Latency</div>
-          <div class="tstat__value">
-            <span id="itl">--</span><span class="tstat__unit">ms</span>
+          <div class="tstat__header">
+            <span class="tstat__header-label"><span class="tstat__dot tstat__dot--blue"></span> Inter-Token Latency</span>
+          </div>
+          <div class="tstat__live-row" id="itl">
+            <span class="tstat__live-num">--</span>
+            <span class="tstat__live-unit">ms</span>
+            <span class="tstat__live-range" id="range-itl"></span>
           </div>
           <div class="sparkline-wrap sparkline-wrap--histogram" id="spark-itl">
             <canvas class="histogram" height="24"></canvas>
-            <div class="chart-range" id="range-itl"></div>
           </div>
         </div>
       </div>

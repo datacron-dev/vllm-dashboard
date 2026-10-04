@@ -157,6 +157,10 @@ const health = {
   },
 };
 
+// ─── Live-line crosshair sync registry (module-level) ───
+const _liveChartInstances = [];  // [{el, w, n, points, validValues, color, plotH, plotB, tooltipEl, drawChart}]
+let _sharedCrosshairPct = -1;    // -1 = no hover; 0–100 = % from left edge
+
 // Live line chart renderer (canvas) — clean line + per-chart tooltip.
 // ---------------------------------------------------------------------------
 function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, containerEl) {
@@ -177,25 +181,45 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
   const plotT = 4;
   const plotH = plotB - plotT;
 
-  // Determine the effective Y max:
-  // 1. Use the caller-provided maxVal if it's positive.
-  // 2. Otherwise compute from data, rounded up to a nice number, with ~10% headroom.
-  let yMax;
-  if (maxVal != null && maxVal > 0) {
-    yMax = maxVal;
-  } else {
-    const dataMax = values.reduce((m, v) => {
-      if (v == null || Number.isNaN(v)) return m;
-      return Math.max(m, Math.max(0, v));
-    }, 0);
-    yMax = Math.max(1, Math.ceil(dataMax * 1.1));
-    // Snap to a nice scale
-    const mag = Math.pow(10, Math.floor(Math.log10(yMax)));
-    yMax = Math.ceil(yMax / mag) * mag;
-  }
-
   const validValues = values || [];
   const n = validValues.length;
+
+  // Determine the effective Y max:
+  // Use the max of the live (current) value and the recent window (last 30 points,
+  // ~60s) so the scale reflects current activity.  Older peaks don't crush the
+  // live value into a flat line.  We still take the absolute dataMax as a ceiling
+  // so nothing ever clips, but we anchor on recent data.
+  let dataMax = validValues.reduce((m, v) => {
+    if (v == null || Number.isNaN(v)) return m;
+    return Math.max(m, Math.max(0, v));
+  }, 0);
+
+  // Recent-window max (last 30 values = ~60s at 2s poll)
+  const recentWindow = 30;
+  let recentMax = 0;
+  if (n > 0) {
+    const start = Math.max(0, n - recentWindow);
+    for (let i = start; i < n; i++) {
+      const v = validValues[i];
+      if (v != null && !Number.isNaN(v)) {
+        recentMax = Math.max(recentMax, Math.max(0, v));
+      }
+    }
+  }
+
+  // The scale floor is the larger of: the recent window max and the live value.
+  // This ensures the current value is always prominent.
+  // The absolute ceiling is dataMax so old spikes don't clip.
+  let yMax;
+  if (maxVal != null && maxVal > 0) {
+    yMax = Math.max(recentMax, maxVal);
+  } else {
+    yMax = recentMax;
+  }
+  yMax = Math.max(1, Math.ceil(yMax * 1.1));  // 10% headroom on top
+  // Snap to a nice scale
+  const mag = Math.pow(10, Math.floor(Math.log10(yMax)));
+  yMax = Math.ceil(yMax / mag) * mag;
 
   // Pre-compute all point positions for hover lookup
   const points = [];
@@ -247,9 +271,7 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
     ctx.stroke();
   }
 
-  let crosshairIdx = -1;  // -1 means use default (right edge)
-
-  // ── Draw the chart (line + crosshair + dot + tooltip) ──────────────
+  // ── Draw the chart (line only — crosshair drawn separately) ───
   function drawChart() {
     ctx.clearRect(0, 0, w, h);
 
@@ -258,70 +280,66 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
       drawSmoothLine(points);
     }
 
-    // ── Crosshair at hover index ────────────────────────────
-    if (crosshairIdx >= 0 && crosshairIdx < n && points[crosshairIdx]) {
-      const cp = points[crosshairIdx];
+    // ── Synced crosshair at cursor X ────────────────────────
+    if (_sharedCrosshairPct >= 0) {
+      const cx = (_sharedCrosshairPct / 100) * w;
       ctx.save();
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.2;
       ctx.globalAlpha = 0.7;
       ctx.beginPath();
-      ctx.moveTo(cp.x, plotT);
-      ctx.lineTo(cp.x, plotB);
+      ctx.moveTo(cx, plotT);
+      ctx.lineTo(cx, plotB);
       ctx.stroke();
       ctx.restore();
     }
+  }
 
-    // ── Dot on latest point (always at right edge) ──────────
-    if (n >= 2) {
-      const lastVal = validValues[n - 1];
-      if (lastVal != null && !Number.isNaN(lastVal)) {
-        const lx = w - 2;  // right edge
-        const ly = plotB - (Math.max(0, lastVal) / yMax) * plotH;
-
-        // Vertical crosshair from top to dot
-        ctx.save();
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.2;
-        ctx.globalAlpha = 0.7;
-        ctx.beginPath();
-        ctx.moveTo(lx, plotT);
-        ctx.lineTo(lx, ly);
-        ctx.stroke();
-        ctx.restore();
-
-        // Dot
-        ctx.beginPath();
-        ctx.arc(lx, ly, 3, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.strokeStyle = '#0d1117';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
+  // ── Update tooltip inline, color-coded ──────────────────
+  function updateTooltip(val) {
+    if (!tooltipEl) return;
+    if (val != null) {
+      tooltipEl.classList.add('chart-tooltip--visible');
+      tooltipEl.innerHTML = `<span style="color:${color}">${val} tok/s</span>`;
+    } else {
+      tooltipEl.classList.remove('chart-tooltip--visible');
     }
+  }
 
-    // ── Tooltip ─────────────────────────────────────────────
-    if (tooltipEl) {
-      const showVal = crosshairIdx >= 0 && crosshairIdx < n && points[crosshairIdx]
-        ? Math.round(points[crosshairIdx].v)
-        : (n >= 2 && validValues[n - 1] != null && !Number.isNaN(validValues[n - 1]) ? Math.round(validValues[n - 1]) : null);
-      if (showVal != null) {
-        tooltipEl.classList.add('chart-tooltip--visible');
-        tooltipEl.innerHTML =
-          `<span class="chart-tooltip__value" style="color:${color}">${showVal} tok/s</span>`;
-      } else {
-        tooltipEl.classList.remove('chart-tooltip--visible');
-      }
+  // Register/update this chart instance for crosshair sync by containerEl identity
+  let _found = false;
+  for (const _inst of _liveChartInstances) {
+    if (_inst.el === containerEl) {
+      _inst.w = w;
+      _inst.n = n;
+      _inst.points = points;
+      _inst.validValues = validValues;
+      _inst.color = color;
+      _inst.plotH = plotH;
+      _inst.plotB = plotB;
+      _inst.tooltipEl = tooltipEl;
+      _inst.drawChart = drawChart;
+      _found = true;
+      break;
     }
+  }
+  if (!_found) {
+    _liveChartInstances.push({
+      el: containerEl,
+      w, n, points, validValues, color, plotH, plotB,
+      tooltipEl, drawChart,
+    });
   }
 
   // Initial draw
   drawChart();
+  // Show the default live value in the inline tooltip
+  updateTooltip(n >= 2 && validValues[n - 1] != null && !Number.isNaN(validValues[n - 1])
+    ? Math.round(validValues[n - 1])
+    : null);
 
-  // ── Mouse-tracking overlay ────────────────────────────────
+  // ── Mouse-tracking overlay (both charts sync) ───────────
   if (containerEl) {
     containerEl.style.position = 'relative';
     containerEl.style.cursor = 'crosshair';
@@ -335,7 +353,12 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
     const onPointerMove = (ev) => {
       const cRect = canvas.getBoundingClientRect();
       const mx = ev.clientX - cRect.left;  // mouse X inside canvas
-      // Find nearest point
+      if (mx < 0 || mx > w) return;
+
+      // Convert to percentage for sync across both charts
+      _sharedCrosshairPct = (mx / w) * 100;
+
+      // Find nearest data point for this chart's tooltip value
       let best = -1;
       let bestDist = Infinity;
       for (let i = 0; i < n; i++) {
@@ -343,38 +366,57 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
         const d = Math.abs(mx - points[i].x);
         if (d < bestDist) { bestDist = d; best = i; }
       }
+
+      // Show tooltip value if close enough to a point
       if (best >= 0 && bestDist < 20) {
-        crosshairIdx = best;
-        // Position tooltip above the chart near the crosshair X
-        tooltipEl.classList.add('chart-tooltip--visible');
-        let left = points[best].x;  // snap X to data point
-        let top = 2;  // just below the top edge
-        // Clamp to container bounds
-        if (left < 50) left = 50;
-        if (left > w - 50) left = w - 50;
-        tooltipEl.style.top = top + 'px';
-        tooltipEl.style.left = left + 'px';
-        tooltipEl.style.bottom = 'auto';
-        tooltipEl.style.transform = 'translateX(-50%)';
-        drawChart();
+        updateTooltip(Math.round(points[best].v));
       } else {
-        // Not on a data point — restore default tooltip at right edge
-        crosshairIdx = -1;
-        tooltipEl.style.top = '';
-        tooltipEl.style.left = '';
-        tooltipEl.style.bottom = '6px';
-        tooltipEl.style.transform = 'translateX(-50%)';
-        drawChart();
+        updateTooltip(null);
+      }
+
+      // Also update the OTHER chart's tooltip at the synced crosshair X
+      const thisIdx = _liveChartInstances.findIndex(i => i.el === containerEl);
+      for (let oi = 0; oi < _liveChartInstances.length; oi++) {
+        if (oi === thisIdx) continue;  // skip the hovered chart (already updated above)
+        const other = _liveChartInstances[oi];
+        if (!other || !other.tooltipEl || other.n < 2) continue;
+        const otherMX = (_sharedCrosshairPct / 100) * other.w;
+        let bestOther = -1;
+        let bestDistOther = Infinity;
+        for (let i = 0; i < other.n; i++) {
+          if (!other.points[i]) continue;
+          const d = Math.abs(otherMX - other.points[i].x);
+          if (d < bestDistOther) { bestDistOther = d; bestOther = i; }
+        }
+        if (bestOther >= 0 && bestDistOther < 20) {
+          other.tooltipEl.classList.add('chart-tooltip--visible');
+          other.tooltipEl.innerHTML = `<span style="color:${other.color}">${Math.round(other.points[bestOther].v)} tok/s</span>`;
+        } else {
+          other.tooltipEl.classList.remove('chart-tooltip--visible');
+        }
+      }
+
+      // Redraw ALL charts so crosshairs sync
+      for (const inst of _liveChartInstances) {
+        inst.drawChart();
       }
     };
 
     const onPointerLeave = () => {
-      crosshairIdx = -1;
-      tooltipEl.style.top = '';
-      tooltipEl.style.left = '';
-      tooltipEl.style.bottom = '6px';
-      tooltipEl.style.transform = 'translateX(-50%)';
-      drawChart();
+      _sharedCrosshairPct = -1;
+      // Restore all tooltips to latest values
+      for (const inst of _liveChartInstances) {
+        if (inst.tooltipEl && inst.n >= 2) {
+          const lastVal = inst.validValues[inst.n - 1];
+          if (lastVal != null && !Number.isNaN(lastVal)) {
+            inst.tooltipEl.classList.add('chart-tooltip--visible');
+            inst.tooltipEl.innerHTML = `<span style="color:${inst.color}">${Math.round(lastVal)} tok/s</span>`;
+          } else {
+            inst.tooltipEl.classList.remove('chart-tooltip--visible');
+          }
+        }
+        inst.drawChart();
+      }
     };
 
     containerEl.addEventListener('pointermove', onPointerMove);
@@ -447,10 +489,10 @@ const throughput = {
   na: false,
   update(snapshot) {
     if (this.na) {
-      setText('#prompt-tok-s', 'n/a');
-      setText('#gen-tok-s', 'n/a');
-      setText('#ttft', 'n/a');
-      setText('#itl', 'n/a');
+      setTextInner('#prompt-tok-s .tstat__live-num', 'n/a');
+      setTextInner('#gen-tok-s .tstat__live-num', 'n/a');
+      setTextInner('#ttft .tstat__live-num', 'n/a');
+      setTextInner('#itl .tstat__live-num', 'n/a');
       setText('#throughput-meta', VLLM_NA_META);
       const liveEl = $('#throughput-live');
       if (liveEl) liveEl.style.display = 'none';
@@ -462,8 +504,8 @@ const throughput = {
     const itlMs = snapshot.itlMs;
     setTextInner('#prompt-tok-s .tstat__live-num', formatTokS(promptTokS));
     setTextInner('#gen-tok-s .tstat__live-num', formatTokS(genTokS));
-    setText('#ttft', formatTTFT(ttftMs));
-    setText('#itl', formatITL(itlMs));
+    setTextInner('#ttft .tstat__live-num', formatTTFT(ttftMs));
+    setTextInner('#itl .tstat__live-num', formatITL(itlMs));
     setText('#throughput-meta',
       snapshot.promptTokensTotal != null
         ? `${(snapshot.promptTokensTotal || 0).toLocaleString()} + ${(snapshot.genTokensTotal || 0).toLocaleString()} total`
@@ -479,18 +521,18 @@ const throughput = {
     if (tSpark) tSpark.push(ttftMs);
     if (iSpark) iSpark.push(itlMs);
 
-    // Live line charts for Prompt and Generation (auto-scaled)
+    // Live line charts for Prompt and Generation (maxVal = latest value so scale stays meaningful)
     renderLiveLineChart(
       $('#spark-prompt-tok-s').querySelector('canvas'),
       pSpark ? pSpark.values : [],
-      '#FBBF24', 0,
+      '#FBBF24', promptTokS || 0,
       $('#tooltip-prompt-tok-s'),
       $('#spark-prompt-tok-s')
     );
     renderLiveLineChart(
       $('#spark-gen-tok-s').querySelector('canvas'),
       gSpark ? gSpark.values : [],
-      '#F97316', 0,
+      '#F97316', genTokS || 0,
       $('#tooltip-gen-tok-s'),
       $('#spark-gen-tok-s')
     );
@@ -518,6 +560,15 @@ const throughput = {
         gRange.textContent = `${Math.round(Math.min(...vals))} — ${Math.round(Math.max(...vals))} tok/s`;
       } else {
         gRange.textContent = '-- tok/s';
+      }
+    }
+    const tRange = $('#range-ttft');
+    if (tRange) {
+      const vals = (tSpark ? tSpark.values : []).filter(v => v != null && !Number.isNaN(v) && v >= 0);
+      if (vals.length) {
+        tRange.textContent = `${Math.round(Math.min(...vals))} — ${Math.round(Math.max(...vals))} ms`;
+      } else {
+        tRange.textContent = '-- ms';
       }
     }
     const iRange = $('#range-itl');

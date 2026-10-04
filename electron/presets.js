@@ -166,12 +166,18 @@ const PRESETS = [
       // Blackwell NVFP4 MoE routing - verified fast path on GB10/SM121.
       '    --moe-backend flashinfer_cutlass',
       '    --kv-cache-dtype fp8_e4m3',
-      // 128 GB unified memory: 0.87 leaves ~17 GB for OS/CUDA runtime + MTP head.
-      '    --gpu-memory-utilization 0.87',
-      // Full native 131K context. Drop to 65536 for more concurrent KV slots.
+      // 128 GB unified memory: 0.80 reserves ~24 GB overhead headroom — prevents
+      // OOM from CUDA-graph/graph-compilation spikes and keeps KV cache in FP8.
+      '    --gpu-memory-utilization 0.80',
+      // Full native 131K context — sweet spot for concurrency (2 × 131K sequences).
+      // 262K would only fit 1 sequence at this memory budget.
       '    --max-model-len 131072',
-      '    --max-num-seqs 32',
-      '    --max-num-batched-tokens 32768',
+      // 8 concurrent requests — single-user guardrail; prevents accidental queue
+      // buildup. max-num-seqs is a scheduler gate, not a memory allocator.
+      '    --max-num-seqs 8',
+      // 65536 batched tokens — halves prefill chunks at 131K context (2 vs 4),
+      // faster TTFT. No KV cache impact — prefill chunks share the same pool.
+      '    --max-num-batched-tokens 65536',
       // Performance flags.
       '    --enable-chunked-prefill',
       '    --async-scheduling',
