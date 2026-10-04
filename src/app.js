@@ -206,6 +206,65 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
     points.push({ x: (i / (n - 1)) * w, y: plotB - (safe / yMax) * plotH, v: safe });
   }
 
+  // ─── Cardinal spline helper: draws a smooth curve through points ───
+  // Uses a tension-based Catmull-Rom variant for smooth interpolation.
+  function drawSmoothLine(pts, startFrom) {
+    // Gather only valid consecutive segments
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    const valid = pts.filter(Boolean);
+    if (valid.length < 2) return;
+
+    // Start at the first valid point
+    let started = false;
+    for (let i = 0; i < valid.length; i++) {
+      const p = valid[i];
+      const srcIdx = pts.indexOf(p);
+      if (!started) {
+        ctx.moveTo(p.x, p.y);
+        started = true;
+        continue;
+      }
+      // Find the previous and next valid points for the spline
+      const pi = pts.indexOf(p);
+      let prev = null, next = null;
+      for (let j = pi - 1; j >= 0; j--) { if (pts[j]) { prev = pts[j]; break; } }
+      for (let j = pi + 1; j < pts.length; j++) { if (pts[j]) { next = pts[j]; break; } }
+
+      const tension = 0.3;
+      let cp1x, cp1y, cp2x, cp2y, ex, ey;
+      if (prev && next) {
+        cp1x = p.x + (next.x - prev.x) * tension;
+        cp1y = p.y + (next.y - prev.y) * tension;
+        cp2x = next.x - (next.x - p.x) * tension;
+        cp2y = next.y - (next.y - p.y) * tension;
+        ex = next.x;
+        ey = next.y;
+      } else {
+        // First or last point: straight to the neighbor
+        if (prev) {
+          cp1x = p.x;
+          cp1y = p.y;
+          cp2x = next ? next.x - (p.x - prev.x) * tension : next.x;
+          cp2y = next ? next.y - (p.y - prev.y) * tension : next.y;
+        } else {
+          cp1x = prev ? prev.x + (next.x - prev.x) * tension : next.x;
+          cp1y = prev ? prev.y + (next.y - prev.y) * tension : next.y;
+          cp2x = next.x;
+          cp2y = next.y;
+        }
+        ex = next.x;
+        ey = next.y;
+      }
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ex, ey);
+    }
+    ctx.stroke();
+  }
+
   let crosshairIdx = -1;  // -1 means use default (right edge)
 
   // ── Draw the chart (line + crosshair + dot + tooltip) ──────────────
@@ -213,35 +272,18 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
     ctx.clearRect(0, 0, w, h);
 
     if (n >= 2) {
-      // ── Draw the line ──────────────────────────────────────
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.8;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-
-      let started = false;
-      for (let i = 0; i < n; i++) {
-        if (!points[i]) { started = false; continue; }
-        const p = points[i];
-        if (!started) {
-          ctx.moveTo(p.x, p.y);
-          started = true;
-        } else {
-          ctx.lineTo(p.x, p.y);
-        }
-      }
-      ctx.stroke();
+      // ── Draw a smooth curve through all points ─────────────
+      drawSmoothLine(points, 0);
     }
 
     // ── Crosshair at hover index ────────────────────────────
     if (crosshairIdx >= 0 && crosshairIdx < n && points[crosshairIdx]) {
       const cp = points[crosshairIdx];
       ctx.save();
-      ctx.setLineDash([2, 2]);
+      ctx.setLineDash([4, 4]);
       ctx.strokeStyle = color;
-      ctx.lineWidth = 0.7;
-      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 1.2;
+      ctx.globalAlpha = 0.7;
       ctx.beginPath();
       ctx.moveTo(cp.x, plotT);
       ctx.lineTo(cp.x, plotB);
@@ -258,10 +300,10 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
 
         // Vertical crosshair from top to dot
         ctx.save();
-        ctx.setLineDash([2, 2]);
+        ctx.setLineDash([4, 4]);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 0.7;
-        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 1.2;
+        ctx.globalAlpha = 0.7;
         ctx.beginPath();
         ctx.moveTo(lx, plotT);
         ctx.lineTo(lx, ly);
@@ -321,17 +363,17 @@ function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl, container
       }
       if (best >= 0 && bestDist < 20) {
         crosshairIdx = best;
-        // Move tooltip near cursor
+        // Position tooltip above the chart near the crosshair X
         tooltipEl.classList.add('chart-tooltip--visible');
-        // Position: above cursor, or above chart if near top
-        let top = ev.clientY - cRect.top - 42;
-        let left = ev.clientX - cRect.left - 30;
-        if (top < 2) top = 2;
-        if (left < 2) left = 2;
+        let left = points[best].x;  // snap X to data point
+        let top = 2;  // just below the top edge
+        // Clamp to container bounds
+        if (left < 50) left = 50;
+        if (left > w - 50) left = w - 50;
         tooltipEl.style.top = top + 'px';
         tooltipEl.style.left = left + 'px';
         tooltipEl.style.bottom = 'auto';
-        tooltipEl.style.transform = 'none';
+        tooltipEl.style.transform = 'translateX(-50%)';
         drawChart();
       } else {
         // Not on a data point — restore default tooltip at right edge
