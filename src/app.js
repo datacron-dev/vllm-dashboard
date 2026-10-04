@@ -29,10 +29,14 @@ function setText(sel, value) {
   if (el) el.textContent = value;
 }
 
+function setTextInner(spanSelector, value) {
+  const el = $(spanSelector);
+  if (el) el.textContent = value;
+}
+
 function formatTokS(v) {
   if (v == null || Number.isNaN(v)) return '--';
-  if (v >= 1000) return (v / 1000).toFixed(2) + 'k';
-  return Math.round(v).toString();
+  return String(Math.round(v));
 }
 
 function formatPct(v) {
@@ -153,6 +157,160 @@ const health = {
   },
 };
 
+// Live line chart renderer (canvas) — clean line + per-chart tooltip.
+// ---------------------------------------------------------------------------
+function renderLiveLineChart(canvas, values, color, maxVal, tooltipEl) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(52 * dpr);
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = 52;
+
+  // Clear
+  ctx.clearRect(0, 0, w, h);
+
+  // Plot area (full width, small top/bottom margin)
+  const plotB = h - 4;
+  const plotT = 4;
+  const plotH = plotB - plotT;
+
+  const yMax = maxVal != null && maxVal > 0 ? maxVal : 1000;
+
+  const validValues = values || [];
+  const n = validValues.length;
+
+  if (n >= 2) {
+    // ── Draw the line ──────────────────────────────────────
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    let started = false;
+    for (let i = 0; i < n; i++) {
+      const v = validValues[i];
+      if (v == null || Number.isNaN(v)) { started = false; continue; }
+      const safe = Math.max(0, v);
+      const x = (i / (n - 1)) * w;
+      const y = plotB - (safe / yMax) * plotH;
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+
+    // ── Dot on latest point ────────────────────────────────
+    const lastVal = validValues[n - 1];
+    if (lastVal != null && !Number.isNaN(lastVal)) {
+      const lx = w - 2;  // right edge
+      const ly = plotB - (Math.max(0, lastVal) / yMax) * plotH;
+
+      // Vertical crosshair from top to dot
+      ctx.save();
+      ctx.setLineDash([2, 2]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.7;
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.moveTo(lx, plotT);
+      ctx.lineTo(lx, ly);
+      ctx.stroke();
+      ctx.restore();
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#0d1117';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Update per-chart tooltip
+      if (tooltipEl) {
+        tooltipEl.classList.add('chart-tooltip--visible');
+        tooltipEl.innerHTML =
+          `<span class="chart-tooltip__value" style="color:${color}">${Math.round(lastVal)} tok/s</span>`;
+      }
+    }
+  } else {
+    // No data: flat baseline at bottom
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(107,114,128,0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.moveTo(0, plotB);
+    ctx.lineTo(w, plotB);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Hide tooltip when no data
+    if (tooltipEl) {
+      tooltipEl.classList.remove('chart-tooltip--visible');
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Latency histogram renderer (canvas)
+// ---------------------------------------------------------------------------
+function renderHistogram(canvas, values, unit) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 24 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = 24;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (!values || values.length < 2) return;
+
+  // Buckets: <50, 50-100, 100-200, 200-500, >500
+  const buckets = [0, 0, 0, 0, 0];
+  const bounds = [50, 100, 200, 500];
+
+  for (const v of values) {
+    if (v == null || Number.isNaN(v) || v <= 0) continue;
+    let idx = buckets.length - 1;
+    for (let i = 0; i < bounds.length; i++) {
+      if (v < bounds[i]) { idx = i; break; }
+    }
+    buckets[idx]++;
+  }
+
+  const maxBucket = Math.max(...buckets, 1);
+  const barCount = buckets.length;
+  const gap = 2;
+  const barWidth = (w - gap * (barCount - 1)) / barCount;
+
+  const bucketColors = [
+    'rgba(63, 185, 80, 0.6)',
+    'rgba(63, 185, 80, 0.5)',
+    'rgba(210, 153, 34, 0.6)',
+    'rgba(214, 48, 49, 0.6)',
+    'rgba(214, 48, 49, 0.7)',
+  ];
+
+  for (let i = 0; i < barCount; i++) {
+    const x = i * (barWidth + gap);
+    const barH = (buckets[i] / maxBucket) * (h - 4);
+    const y = h - barH;
+    ctx.fillStyle = bucketColors[i];
+    ctx.fillRect(x, y, barWidth, barH);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Throughput panel
 // ---------------------------------------------------------------------------
@@ -165,14 +323,16 @@ const throughput = {
       setText('#ttft', 'n/a');
       setText('#itl', 'n/a');
       setText('#throughput-meta', VLLM_NA_META);
+      const liveEl = $('#throughput-live');
+      if (liveEl) liveEl.style.display = 'none';
       return;
     }
     const promptTokS = snapshot.promptTokS;
     const genTokS = snapshot.genTokS;
     const ttftMs = snapshot.ttftMs;
     const itlMs = snapshot.itlMs;
-    setText('#prompt-tok-s', formatTokS(promptTokS));
-    setText('#gen-tok-s', formatTokS(genTokS));
+    setTextInner('#prompt-tok-s .tstat__live-num', formatTokS(promptTokS));
+    setTextInner('#gen-tok-s .tstat__live-num', formatTokS(genTokS));
     setText('#ttft', formatTTFT(ttftMs));
     setText('#itl', formatITL(itlMs));
     setText('#throughput-meta',
@@ -189,10 +349,63 @@ const throughput = {
     if (gSpark) gSpark.push(genTokS);
     if (tSpark) tSpark.push(ttftMs);
     if (iSpark) iSpark.push(itlMs);
-    sparklineRender($('#spark-prompt-tok-s'), pSpark ? pSpark.values : [], 1000);
-    sparklineRender($('#spark-gen-tok-s'), gSpark ? gSpark.values : [], 1000);
+
+    // Live line charts for Prompt and Generation
+    renderLiveLineChart(
+      $('#spark-prompt-tok-s').querySelector('canvas'),
+      pSpark ? pSpark.values : [],
+      '#FBBF24', 500,
+      $('#tooltip-prompt-tok-s')
+    );
+    renderLiveLineChart(
+      $('#spark-gen-tok-s').querySelector('canvas'),
+      gSpark ? gSpark.values : [],
+      '#F97316', 500,
+      $('#tooltip-gen-tok-s')
+    );
+
+    // SVG sparkline for TTFT only (no canvas)
     sparklineRender($('#spark-ttft'), tSpark ? tSpark.values : [], 5000);
-    sparklineRender($('#spark-itl'), iSpark ? iSpark.values : [], 500);
+
+    // Histogram for ITL
+    renderHistogram($('#spark-itl').querySelector('canvas'), iSpark ? iSpark.values : [], 'ms');
+
+    // Range labels — card-level top-right overlay
+    const pRange = $('#card-range-prompt-tok-s');
+    if (pRange) {
+      const vals = (pSpark ? pSpark.values : []).filter(v => v != null && !Number.isNaN(v) && v >= 0);
+      if (vals.length) {
+        pRange.textContent = `${Math.round(Math.min(...vals))} — ${Math.round(Math.max(...vals))} tok/s`;
+      } else {
+        pRange.textContent = '-- tok/s';
+      }
+    }
+    const gRange = $('#card-range-gen-tok-s');
+    if (gRange) {
+      const vals = (gSpark ? gSpark.values : []).filter(v => v != null && !Number.isNaN(v) && v >= 0);
+      if (vals.length) {
+        gRange.textContent = `${Math.round(Math.min(...vals))} — ${Math.round(Math.max(...vals))} tok/s`;
+      } else {
+        gRange.textContent = '-- tok/s';
+      }
+    }
+    const iRange = $('#range-itl');
+    if (iRange) {
+      const vals = (iSpark ? iSpark.values : []).filter(v => v != null && !Number.isNaN(v) && v > 0);
+      if (vals.length) {
+        iRange.textContent = `${Math.round(Math.min(...vals))} — ${Math.round(Math.max(...vals))} ms`;
+      } else {
+        iRange.textContent = '-- ms';
+      }
+    }
+
+    // Live indicator
+    const liveEl = $('#throughput-live');
+    if (liveEl) {
+      const validPrompt = promptTokS != null && !Number.isNaN(promptTokS) && promptTokS > 0;
+      const validGen = genTokS != null && !Number.isNaN(genTokS) && genTokS > 0;
+      liveEl.style.display = (validPrompt || validGen) ? '' : 'none';
+    }
   },
 };
 

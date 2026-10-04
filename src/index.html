@@ -80,31 +80,35 @@
     <section id="panel-throughput" class="panel panel--throughput">
       <header class="panel__header">
         <h2 class="panel__title">Throughput</h2>
-        <span class="panel__meta" id="throughput-meta">—</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="throughput-live" style="display:none;font-size:10px;color:var(--accent);font-weight:600;">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;box-shadow:0 0 4px var(--accent);margin-right:4px;animation:livePulse 1.5s ease-in-out infinite;"></span>
+            Live
+          </span>
+          <span class="panel__meta" id="throughput-meta">—</span>
+        </div>
       </header>
       <div class="panel__body panel--throughput__body">
-        <div class="tstat">
-          <div class="tstat__label">Prompt</div>
-          <div class="tstat__value">
-            <span id="prompt-tok-s">--</span><span class="tstat__unit">tok/s</span>
+        <div class="tstat tstat--wide">
+          <div class="tstat__header">
+            <span class="tstat__header-label"><span class="tstat__dot tstat__dot--orange"></span> Prompt Processing</span>
+            <span class="tstat__header-range" id="card-range-prompt-tok-s"></span>
           </div>
-          <div class="sparkline-wrap" id="spark-prompt-tok-s">
-            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
-              <path class="sparkline-area" d=""/>
-              <path class="sparkline-line" d=""/>
-            </svg>
+          <div class="tstat__live-value" id="prompt-tok-s"><span class="tstat__live-num">--</span><span class="tstat__live-unit">tok/s</span></div>
+          <div class="sparkline-wrap sparkline-wrap--chart" id="spark-prompt-tok-s">
+            <canvas class="live-chart" height="52"></canvas>
+            <div class="chart-tooltip" id="tooltip-prompt-tok-s"></div>
           </div>
         </div>
-        <div class="tstat">
-          <div class="tstat__label">Generation</div>
-          <div class="tstat__value">
-            <span id="gen-tok-s">--</span><span class="tstat__unit">tok/s</span>
+        <div class="tstat tstat--wide">
+          <div class="tstat__header">
+            <span class="tstat__header-label"><span class="tstat__dot tstat__dot--green"></span> Token Generation</span>
+            <span class="tstat__header-range" id="card-range-gen-tok-s"></span>
           </div>
-          <div class="sparkline-wrap" id="spark-gen-tok-s">
-            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
-              <path class="sparkline-area" d=""/>
-              <path class="sparkline-line" d=""/>
-            </svg>
+          <div class="tstat__live-value" id="gen-tok-s"><span class="tstat__live-num">--</span><span class="tstat__live-unit">tok/s</span></div>
+          <div class="sparkline-wrap sparkline-wrap--chart" id="spark-gen-tok-s">
+            <canvas class="live-chart" height="52"></canvas>
+            <div class="chart-tooltip" id="tooltip-gen-tok-s"></div>
           </div>
         </div>
         <div class="tstat">
@@ -124,11 +128,9 @@
           <div class="tstat__value">
             <span id="itl">--</span><span class="tstat__unit">ms</span>
           </div>
-          <div class="sparkline-wrap" id="spark-itl">
-            <svg viewBox="0 0 120 24" preserveAspectRatio="none">
-              <path class="sparkline-area" d=""/>
-              <path class="sparkline-line" d=""/>
-            </svg>
+          <div class="sparkline-wrap sparkline-wrap--histogram" id="spark-itl">
+            <canvas class="histogram" height="24"></canvas>
+            <div class="chart-range" id="range-itl"></div>
           </div>
         </div>
       </div>
