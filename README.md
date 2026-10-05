@@ -20,8 +20,8 @@ A lightweight Electron desktop application for monitoring a local vLLM server in
 
 <table>
   <tr>
-    <td align="center" width="45%"><a href="docs/screenshots/dashboard1.png"><img src="docs/screenshots/dashboard1.png" width="100%"/></a><br/><sub><b>Dashboard 1</b></sub></td>
-    <td align="center" width="45%"><a href="docs/screenshots/dashboard2.png"><img src="docs/screenshots/dashboard2.png" width="100%"/></a><br/><sub><b>Dashboard 2</b></sub></td>
+    <td align="center" width="45%"><a href="docs/screenshots/Nemotron-3.5-Lightning-30B-A3B-NVFP4.png"><img src="docs/screenshots/Nemotron-3.5-Lightning-30B-A3B-NVFP4.png" width="100%"/></a><br/><sub><b>Nemotron-3.5-Lightning-30B-A3B-NVFP4</b></sub></td>
+    <td align="center" width="45%"><a href="docs/screenshots/RedHatAI/Qwen3.6-35B-A3B-NVFP4.png"><img src="docs/screenshots/RedHatAI/Qwen3.6-35B-A3B-NVFP4.png" width="100%"/></a><br/><sub><b>Qwen3.6-35B-A3B-NVFP4</b></sub></td>
   </tr>
 </table>
 
