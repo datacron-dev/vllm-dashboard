@@ -18,7 +18,10 @@ A lightweight Electron desktop application for monitoring a local vLLM server in
 <!-- Add screenshots here for best results -->
 <!-- Place images in a `docs/screenshots/` directory and link below -->
 
-![Dashboard](docs/screenshots/dashboard.png)
+<div style="display: flex; gap: 20px; align-items: center;">
+  <img src="docs/screenshots/dashboard1.png" alt="Dashboard 1" style="max-width: 45%; height: auto;">
+  <img src="docs/screenshots/dashboard2.png" alt="Dashboard 2" style="max-width: 45%; height: auto;">
+</div>
 
 ## Requirements
 
